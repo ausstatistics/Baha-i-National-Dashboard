@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Baháʼí National Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Scrollbar for tables */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+    <!-- Chart.js for charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Loading Screen -->
+    <div id="loader" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-sky-600 mb-4"></div>
+        <p class="text-gray-500 font-medium animate-pulse">Loading National Data...</p>
+    </div>
+
+    <!-- Main Dashboard Container (Hidden until loaded) -->
+    <div id="dashboard-container" class="hidden flex-1 flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Header -->
+        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Baháʼí National Dashboard</h1>
+                <p class="text-gray-500 mt-1 text-sm">Tracking growth, educational cycles, and community development across Australia</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <div id="header-date" class="text-sm font-medium text-gray-500 bg-white px-3 py-1 rounded-lg border border-gray-100 shadow-sm">
+                    <!-- Date injected by JS -->
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation & Controls -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-8 sticky top-4 z-30 backdrop-blur-md bg-white/90">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <!-- Tabs -->
+                <nav id="tabs-container" class="flex overflow-x-auto space-x-1 p-1 w-full md:w-auto custom-scrollbar pb-2 md:pb-0">
+                    <!-- Tabs injected by JS -->
+                </nav>
+
+                <!-- Filters -->
+                <div id="region-filter-container" class="w-full md:w-64 shrink-0 px-2 border-l border-gray-100">
+                    <label for="regionSelect" class="sr-only">Filter by Region</label>
+                    <div class="relative">
+                        <select id="regionSelect" class="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm rounded-lg bg-gray-50 hover:bg-white transition-colors cursor-pointer border">
+                            <option value="All">All Regions</option>
+                            <!-- Options injected by JS -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Content Area -->
+        <main id="content-container" class="flex-1 space-y-8 animate-fade-in">
+            <!-- Content injected by JS -->
+        </main>
+        
+        <footer class="mt-12 py-6 border-t border-gray-200 text-center text-xs text-gray-400">
+            <p>Confidential &bull; For internal use only &bull; &copy; 2026 National Spiritual Assembly of the Baháʼís of Australia</p>
+        </footer>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, getDocs, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 1. CONFIG & GLOBAL STATE ---
+        const firebaseConfig = { AIzaSyCuRbKwzeW0li7SCiWrc19JrjlcDR4U2qI };
+        const appId = 'baha-i-national-dashboard';
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // DOM Elements (assigned in init sequence at bottom)
+        let contentContainer, regionSelect, regionFilterContainer, loader, dashboard;
+        
+        let chartInstances = {};
+        let currentTab = 'Main Dashboard';
+        let currentRegionFilter = 'All';
+        let user = null;
+
+        let appData = {
+            national: [],
+            regional: [],
+            survey: [],
+            cluster: [],
+            cycle: [],
+            pioneeringTrends: [],
+            youthMovement: { total: 0, uniqueEngaged: 0, inStudyCircles: 0, teachingChildrensClasses: 0, animatingJuniorYouth: 0, tutoringStudyCircle: 0, uniqueFacilitators: 0 }
+        };
+
+        const initialData = {
+            regional: [
+                { Region: 'New South Wales and Australian Capital Territory', Category: 'Devotional Meetings', 'Number of Activities': 962, 'Total Participants': 5806, 'Friends of the Faith': 1631 },
+                { Region: 'New South Wales and Australian Capital Territory', Category: "Children's Classes", 'Number of Activities': 103, 'Total Participants': 2388, 'Friends of the Faith': 1775 },
+                { Region: 'New South Wales and Australian Capital Territory', Category: 'Junior Youth Groups', 'Number of Activities': 32, 'Total Participants': 234, 'Friends of the Faith': 178 },
+                { Region: 'New South Wales and Australian Capital Territory', Category: 'Study Circles', 'Number of Activities': 123, 'Total Participants': 622, 'Friends of the Faith': 189 },
+                { Region: 'North Eastern Australia', Category: 'Devotional Meetings', 'Number of Activities': 447, 'Total Participants': 2352, 'Friends of the Faith': 670 },
+                { Region: 'North Eastern Australia', Category: "Children's Classes", 'Number of Activities': 108, 'Total Participants': 680, 'Friends of the Faith': 515 },
+                { Region: 'North Eastern Australia', Category: 'Junior Youth Groups', 'Number of Activities': 47, 'Total Participants': 224, 'Friends of the Faith': 159 },
+                { Region: 'North Eastern Australia', Category: 'Study Circles', 'Number of Activities': 154, 'Total Participants': 642, 'Friends of the Faith': 179 },
+                { Region: 'Victoria and Tasmania', Category: 'Devotional Meetings', 'Number of Activities': 233, 'Total Participants': 1329, 'Friends of the Faith': 353 },
+                { Region: 'Victoria and Tasmania', Category: "Children's Classes", 'Number of Activities': 73, 'Total Participants': 506, 'Friends of the Faith': 229 },
+                { Region: 'Victoria and Tasmania', Category: 'Junior Youth Groups', 'Number of Activities': 35, 'Total Participants': 233, 'Friends of the Faith': 144 },
+                { Region: 'Victoria and Tasmania', Category: 'Study Circles', 'Number of Activities': 96, 'Total Participants': 512, 'Friends of the Faith': 168 },
+                { Region: 'Western and Central Australia', Category: 'Devotional Meetings', 'Number of Activities': 295, 'Total Participants': 1723, 'Friends of the Faith': 643 },
+                { Region: 'Western and Central Australia', Category: "Children's Classes", 'Number of Activities': 92, 'Total Participants': 527, 'Friends of the Faith': 361 },
+                { Region: 'Western and Central Australia', Category: 'Junior Youth Groups', 'Number of Activities': 56, 'Total Participants': 313, 'Friends of the Faith': 225 },
+                { Region: 'Western and Central Australia', Category: 'Study Circles', 'Number of Activities': 154, 'Total Participants': 617, 'Friends of the Faith': 163 }
+            ],
+            survey: [
+                { "Date": "Oct-19", "Activity": "Study Circles", "Groups": 716, "Participants": 2845, "FoF": 908 }, { "Date": "Apr-20", "Activity": "Study Circles", "Groups": 701, "Participants": 2743, "FoF": 916 }, { "Date": "Oct-20", "Activity": "Study Circles", "Groups": 896, "Participants": 3749, "FoF": 968 }, { "Date": "Apr-21", "Activity": "Study Circles", "Groups": 897, "Participants": 3726, "FoF": 931 }, { "Date": "Oct-21", "Activity": "Study Circles", "Groups": 959, "Participants": 4240, "FoF": 998 }, { "Date": "Apr-22", "Activity": "Study Circles", "Groups": 850, "Participants": 3657, "FoF": 820 }, { "Date": "Oct-22", "Activity": "Study Circles", "Groups": 840, "Participants": 3658, "FoF": 848 }, { "Date": "Apr-23", "Activity": "Study Circles", "Groups": 701, "Participants": 2872, "FoF": 742 }, { "Date": "Oct-23", "Activity": "Study Circles", "Groups": 653, "Participants": 2575, "FoF": 637 }, { "Date": "Apr-24", "Activity": "Study Circles", "Groups": 614, "Participants": 2572, "FoF": 672 }, { "Date": "Oct-24", "Activity": "Study Circles", "Groups": 631, "Participants": 2794, "FoF": 770 }, { "Date": "Apr-25", "Activity": "Study Circles", "Groups": 579, "Participants": 2552, "FoF": 655 }, { "Date": "Oct-25", "Activity": "Study Circles", "Groups": 559, "Participants": 2505, "FoF": 688 },
+                { "Date": "Oct-19", "Activity": "Devotional Meetings", "Groups": 2130, "Participants": 12989, "FoF": 4112 }, { "Date": "Apr-20", "Activity": "Devotional Meetings", "Groups": 2152, "Participants": 12104, "FoF": 4069 }, { "Date": "Oct-20", "Activity": "Devotional Meetings", "Groups": 2437, "Participants": 14053, "FoF": 4025 }, { "Date": "Apr-21", "Activity": "Devotional Meetings", "Groups": 2590, "Participants": 14039, "FoF": 4551 }, { "Date": "Oct-21", "Activity": "Devotional Meetings", "Groups": 2504, "Participants": 13596, "FoF": 4526 }, { "Date": "Apr-22", "Activity": "Devotional Meetings", "Groups": 2420, "Participants": 12749, "FoF": 4388 }, { "Date": "Oct-22", "Activity": "Devotional Meetings", "Groups": 2551, "Participants": 13875, "FoF": 4750 }, { "Date": "Apr-23", "Activity": "Devotional Meetings", "Groups": 2137, "Participants": 13497, "FoF": 4447 }, { "Date": "Oct-23", "Activity": "Devotional Meetings", "Groups": 2022, "Participants": 12213, "FoF": 3652 }, { "Date": "Apr-24", "Activity": "Devotional Meetings", "Groups": 2144, "Participants": 12948, "FoF": 3467 }, { "Date": "Oct-24", "Activity": "Devotional Meetings", "Groups": 1964, "Participants": 12101, "FoF": 3196 }, { "Date": "Apr-25", "Activity": "Devotional Meetings", "Groups": 1974, "Participants": 11804, "FoF": 3239 }, { "Date": "Oct-25", "Activity": "Devotional Meetings", "Groups": 1968, "Participants": 11544, "FoF": 3311 },
+                { "Date": "Oct-19", "Activity": "Children's Classes", "Groups": 571, "Participants": 3598, "FoF": 2656 }, { "Date": "Apr-20", "Activity": "Children's Classes", "Groups": 609, "Participants": 3812, "FoF": 2785 }, { "Date": "Oct-20", "Activity": "Children's Classes", "Groups": 567, "Participants": 3430, "FoF": 2509 }, { "Date": "Apr-21", "Activity": "Children's Classes", "Groups": 579, "Participants": 3505, "FoF": 2565 }, { "Date": "Oct-21", "Activity": "Children's Classes", "Groups": 510, "Participants": 3613, "FoF": 2513 }, { "Date": "Apr-22", "Activity": "Children's Classes", "Groups": 503, "Participants": 3645, "FoF": 2554 }, { "Date": "Oct-22", "Activity": "Children's Classes", "Groups": 467, "Participants": 3169, "FoF": 2391 }, { "Date": "Apr-23", "Activity": "Children's Classes", "Groups": 502, "Participants": 4277, "FoF": 2945 }, { "Date": "Oct-23", "Activity": "Children's Classes", "Groups": 465, "Participants": 3525, "FoF": 2392 }, { "Date": "Apr-24", "Activity": "Children's Classes", "Groups": 418, "Participants": 2758, "FoF": 2002 }, { "Date": "Oct-24", "Activity": "Children's Classes", "Groups": 450, "Participants": 4747, "FoF": 3511 }, { "Date": "Apr-25", "Activity": "Children's Classes", "Groups": 412, "Participants": 4471, "FoF": 3289 }, { "Date": "Oct-25", "Activity": "Children's Classes", "Groups": 392, "Participants": 2317, "FoF": 1509 },
+                { "Date": "Oct-19", "Activity": "Junior Youth Groups", "Groups": 227, "Participants": 1346, "FoF": 976 }, { "Date": "Apr-20", "Activity": "Junior Youth Groups", "Groups": 242, "Participants": 1468, "FoF": 1083 }, { "Date": "Oct-20", "Activity": "Junior Youth Groups", "Groups": 212, "Participants": 1285, "FoF": 913 }, { "Date": "Apr-21", "Activity": "Junior Youth Groups", "Groups": 223, "Participants": 1384, "FoF": 995 }, { "Date": "Oct-21", "Activity": "Junior Youth Groups", "Groups": 209, "Participants": 1309, "FoF": 961 }, { "Date": "Apr-22", "Activity": "Junior Youth Groups", "Groups": 220, "Participants": 1336, "FoF": 980 }, { "Date": "Oct-22", "Activity": "Junior Youth Groups", "Groups": 194, "Participants": 1248, "FoF": 924 }, { "Date": "Apr-23", "Activity": "Junior Youth Groups", "Groups": 179, "Participants": 1155, "FoF": 773 }, { "Date": "Oct-23", "Activity": "Junior Youth Groups", "Groups": 196, "Participants": 1229, "FoF": 766 }, { "Date": "Apr-24", "Activity": "Junior Youth Groups", "Groups": 193, "Participants": 1139, "FoF": 806 }, { "Date": "Oct-24", "Activity": "Junior Youth Groups", "Groups": 193, "Participants": 1154, "FoF": 871 }, { "Date": "Apr-25", "Activity": "Junior Youth Groups", "Groups": 180, "Participants": 1027, "FoF": 731 }, { "Date": "Oct-25", "Activity": "Junior Youth Groups", "Groups": 175, "Participants": 992, "FoF": 703 }
+            ],
+            cluster: [
+                { Region: "New South Wales & Australian Capital Territory", Cluster: "Wentworth", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "New South Wales & Australian Capital Territory", Cluster: "The Hills", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "New South Wales & Australian Capital Territory", Cluster: "ACT SE", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "New South Wales & Australian Capital Territory", Cluster: "Blue Mountains", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "IPG", R26F: "IPG"},
+                { Region: "New South Wales & Australian Capital Territory", Cluster: "North Shore", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "IPG", R26F: "IPG"},
+                { Region: "New South Wales & Australian Capital Territory", Cluster: "Baulkham ul-Baaka", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "IPG", R26F: "IPG"},
+                { Region: "Victoria and Tasmania", Cluster: "Casey", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "Victoria and Tasmania", Cluster: "Gippsland", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "Victoria and Tasmania", Cluster: "Southern Tasmania", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "Victoria and Tasmania", Cluster: "Northern Tasmania", R22A: "PG", R23F: "PG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "Victoria and Tasmania", Cluster: "Grampians", R22A: "IPG", R23F: "IPG", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "Victoria and Tasmania", Cluster: "Werribee", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "Victoria and Tasmania", Cluster: "Stonnington- Boroondara", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "North Eastern Australia", Cluster: "Brisbane Bayside", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG+", R25F: "3rd Milestone", R26F: "3rd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Burnett", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "TBD"},
+                { Region: "North Eastern Australia", Cluster: "Torres Strait", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "2nd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Cassowary Coast", R22A: "IPG", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "-", R25F: "3rd Milestone", R26F: "3rd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Greater Whitsundays", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "2nd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Central Highlands", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "TBD"},
+                { Region: "North Eastern Australia", Cluster: "Far North Coast", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "2nd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Wide Bay", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "2nd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Gold Coast", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "3rd Milestone", R26F: "3rd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Mari", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG+", R24A: "IPG+", R25F: "3rd Milestone", R26F: "3rd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Moreton Bay", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "3rd Milestone", R26F: "3rd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "North West", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "TBD"},
+                { Region: "North Eastern Australia", Cluster: "Scenic Rim", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "2nd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Ipswich (West Moreton)", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "3rd Milestone", R26F: "3rd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Southern Downs", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "2nd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Sunshine Coast", R22A: "IPG", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "3rd Milestone", R26F: "3rd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Toowoomba", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "3rd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Townsville", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "2nd Milestone", R26F: "3rd Milestone"},
+                { Region: "North Eastern Australia", Cluster: "Logan", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG", R25F: "2nd Milestone", R26F: "3rd Milestone"},
+                { Region: "Western and Central Australia", Cluster: "Southern Adelaide", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "Western and Central Australia", Cluster: "Goldfields Esperance", R22A: "PG", R23F: "PG", R23A: "PG", R24F: "PG", R24A: "PG", R25F: "PG", R26F: "PG"}
+            ],
+            cycle: [
+                {"Cycle": "Cycle 15", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 101, "Total Participants": 2386, "Friends of the Faith": 1773},
+                {"Cycle": "Cycle 15", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 31, "Total Participants": 227, "Friends of the Faith": 174},
+                {"Cycle": "Cycle 15", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 121, "Total Participants": 617, "Friends of the Faith": 188},
+                {"Cycle": "Cycle 15", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 105, "Total Participants": 573, "Friends of the Faith": 420},
+                {"Cycle": "Cycle 15", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 45, "Total Participants": 207, "Friends of the Faith": 140},
+                {"Cycle": "Cycle 15", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 141, "Total Participants": 567, "Friends of the Faith": 136},
+                {"Cycle": "Cycle 15", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 71, "Total Participants": 478, "Friends of the Faith": 220},
+                {"Cycle": "Cycle 15", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 38, "Total Participants": 249, "Friends of the Faith": 152},
+                {"Cycle": "Cycle 15", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 96, "Total Participants": 506, "Friends of the Faith": 159},
+                {"Cycle": "Cycle 15", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 97, "Total Participants": 528, "Friends of the Faith": 367},
+                {"Cycle": "Cycle 15", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 52, "Total Participants": 285, "Friends of the Faith": 206},
+                {"Cycle": "Cycle 15", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 173, "Total Participants": 706, "Friends of the Faith": 171},
+                {"Cycle": "Cycle 14", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 117, "Total Participants": 2440, "Friends of the Faith": 1801},
+                {"Cycle": "Cycle 14", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 29, "Total Participants": 215, "Friends of the Faith": 161},
+                {"Cycle": "Cycle 14", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 119, "Total Participants": 608, "Friends of the Faith": 186},
+                {"Cycle": "Cycle 14", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 121, "Total Participants": 809, "Friends of the Faith": 624},
+                {"Cycle": "Cycle 14", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 51, "Total Participants": 240, "Friends of the Faith": 178},
+                {"Cycle": "Cycle 14", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 154, "Total Participants": 651, "Friends of the Faith": 139},
+                {"Cycle": "Cycle 14", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 70, "Total Participants": 475, "Friends of the Faith": 227},
+                {"Cycle": "Cycle 14", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 37, "Total Participants": 232, "Friends of the Faith": 129},
+                {"Cycle": "Cycle 14", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 97, "Total Participants": 512, "Friends of the Faith": 162},
+                {"Cycle": "Cycle 14", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 107, "Total Participants": 579, "Friends of the Faith": 404},
+                {"Cycle": "Cycle 14", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 62, "Total Participants": 324, "Friends of the Faith": 239},
+                {"Cycle": "Cycle 14", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 181, "Total Participants": 701, "Friends of the Faith": 177},
+                {"Cycle": "Cycle 13", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 116, "Total Participants": 2293, "Friends of the Faith": 1691},
+                {"Cycle": "Cycle 13", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 31, "Total Participants": 223, "Friends of the Faith": 161},
+                {"Cycle": "Cycle 13", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 110, "Total Participants": 555, "Friends of the Faith": 156},
+                {"Cycle": "Cycle 13", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 116, "Total Participants": 788, "Friends of the Faith": 604},
+                {"Cycle": "Cycle 13", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 47, "Total Participants": 220, "Friends of the Faith": 161},
+                {"Cycle": "Cycle 13", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 147, "Total Participants": 620, "Friends of the Faith": 144},
+                {"Cycle": "Cycle 13", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 69, "Total Participants": 492, "Friends of the Faith": 240},
+                {"Cycle": "Cycle 13", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 37, "Total Participants": 231, "Friends of the Faith": 128},
+                {"Cycle": "Cycle 13", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 93, "Total Participants": 479, "Friends of the Faith": 143},
+                {"Cycle": "Cycle 13", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 105, "Total Participants": 569, "Friends of the Faith": 395},
+                {"Cycle": "Cycle 13", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 64, "Total Participants": 340, "Friends of the Faith": 245},
+                {"Cycle": "Cycle 13", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 183, "Total Participants": 707, "Friends of the Faith": 181},
+                {"Cycle": "Cycle 12", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 118, "Total Participants": 2308, "Friends of the Faith": 1704},
+                {"Cycle": "Cycle 12", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 35, "Total Participants": 271, "Friends of the Faith": 207},
+                {"Cycle": "Cycle 12", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 109, "Total Participants": 545, "Friends of the Faith": 156},
+                {"Cycle": "Cycle 12", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 109, "Total Participants": 765, "Friends of the Faith": 593},
+                {"Cycle": "Cycle 12", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 42, "Total Participants": 208, "Friends of the Faith": 150},
+                {"Cycle": "Cycle 12", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 130, "Total Participants": 536, "Friends of the Faith": 114},
+                {"Cycle": "Cycle 12", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 67, "Total Participants": 462, "Friends of the Faith": 213},
+                {"Cycle": "Cycle 12", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 35, "Total Participants": 214, "Friends of the Faith": 117},
+                {"Cycle": "Cycle 12", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 84, "Total Participants": 463, "Friends of the Faith": 149},
+                {"Cycle": "Cycle 12", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 108, "Total Participants": 579, "Friends of the Faith": 413},
+                {"Cycle": "Cycle 12", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 59, "Total Participants": 316, "Friends of the Faith": 229},
+                {"Cycle": "Cycle 12", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 169, "Total Participants": 661, "Friends of the Faith": 144},
+                {"Cycle": "Cycle 11", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 115, "Total Participants": 2313, "Friends of the Faith": 1705},
+                {"Cycle": "Cycle 11", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 34, "Total Participants": 240, "Friends of the Faith": 182},
+                {"Cycle": "Cycle 11", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 105, "Total Participants": 536, "Friends of the Faith": 136},
+                {"Cycle": "Cycle 11", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 79, "Total Participants": 579, "Friends of the Faith": 443},
+                {"Cycle": "Cycle 11", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 42, "Total Participants": 214, "Friends of the Faith": 158},
+                {"Cycle": "Cycle 11", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 121, "Total Participants": 510, "Friends of the Faith": 111},
+                {"Cycle": "Cycle 11", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 58, "Total Participants": 434, "Friends of the Faith": 215},
+                {"Cycle": "Cycle 11", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 31, "Total Participants": 187, "Friends of the Faith": 96},
+                {"Cycle": "Cycle 11", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 73, "Total Participants": 411, "Friends of the Faith": 126},
+                {"Cycle": "Cycle 11", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 100, "Total Participants": 543, "Friends of the Faith": 381},
+                {"Cycle": "Cycle 11", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 56, "Total Participants": 287, "Friends of the Faith": 205},
+                {"Cycle": "Cycle 11", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 175, "Total Participants": 697, "Friends of the Faith": 155},
+                {"Cycle": "Cycle 10", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 112, "Total Participants": 1818, "Friends of the Faith": 1425},
+                {"Cycle": "Cycle 10", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 32, "Total Participants": 230, "Friends of the Faith": 172},
+                {"Cycle": "Cycle 10", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 110, "Total Participants": 550, "Friends of the Faith": 130},
+                {"Cycle": "Cycle 10", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 108, "Total Participants": 830, "Friends of the Faith": 684},
+                {"Cycle": "Cycle 10", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 49, "Total Participants": 254, "Friends of the Faith": 190},
+                {"Cycle": "Cycle 10", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 124, "Total Participants": 518, "Friends of the Faith": 124},
+                {"Cycle": "Cycle 10", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 70, "Total Participants": 520, "Friends of the Faith": 262},
+                {"Cycle": "Cycle 10", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 35, "Total Participants": 217, "Friends of the Faith": 119},
+                {"Cycle": "Cycle 10", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 80, "Total Participants": 438, "Friends of the Faith": 130},
+                {"Cycle": "Cycle 10", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 110, "Total Participants": 562, "Friends of the Faith": 392},
+                {"Cycle": "Cycle 10", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 61, "Total Participants": 301, "Friends of the Faith": 198},
+                {"Cycle": "Cycle 10", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 187, "Total Participants": 719, "Friends of the Faith": 140},
+                {"Cycle": "Cycle 9", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 103, "Total Participants": 742, "Friends of the Faith": 499},
+                {"Cycle": "Cycle 9", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 33, "Total Participants": 228, "Friends of the Faith": 166},
+                {"Cycle": "Cycle 9", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 99, "Total Participants": 498, "Friends of the Faith": 117},
+                {"Cycle": "Cycle 9", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 112, "Total Participants": 838, "Friends of the Faith": 675},
+                {"Cycle": "Cycle 9", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 45, "Total Participants": 234, "Friends of the Faith": 183},
+                {"Cycle": "Cycle 9", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 117, "Total Participants": 534, "Friends of the Faith": 122},
+                {"Cycle": "Cycle 9", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 68, "Total Participants": 485, "Friends of the Faith": 232},
+                {"Cycle": "Cycle 9", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 31, "Total Participants": 194, "Friends of the Faith": 104},
+                {"Cycle": "Cycle 9", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 72, "Total Participants": 413, "Friends of the Faith": 101},
+                {"Cycle": "Cycle 9", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 110, "Total Participants": 557, "Friends of the Faith": 392},
+                {"Cycle": "Cycle 9", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 60, "Total Participants": 287, "Friends of the Faith": 196},
+                {"Cycle": "Cycle 9", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 157, "Total Participants": 541, "Friends of the Faith": 119},
+                {"Cycle": "Cycle 8", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 100, "Total Participants": 694, "Friends of the Faith": 463},
+                {"Cycle": "Cycle 8", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 33, "Total Participants": 230, "Friends of the Faith": 167},
+                {"Cycle": "Cycle 8", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 94, "Total Participants": 469, "Friends of the Faith": 117},
+                {"Cycle": "Cycle 8", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 110, "Total Participants": 812, "Friends of the Faith": 669},
+                {"Cycle": "Cycle 8", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 42, "Total Participants": 221, "Friends of the Faith": 169},
+                {"Cycle": "Cycle 8", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 98, "Total Participants": 462, "Friends of the Faith": 108},
+                {"Cycle": "Cycle 8", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 68, "Total Participants": 484, "Friends of the Faith": 235},
+                {"Cycle": "Cycle 8", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 33, "Total Participants": 211, "Friends of the Faith": 115},
+                {"Cycle": "Cycle 8", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 65, "Total Participants": 374, "Friends of the Faith": 79},
+                {"Cycle": "Cycle 8", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 106, "Total Participants": 533, "Friends of the Faith": 368},
+                {"Cycle": "Cycle 8", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 59, "Total Participants": 276, "Friends of the Faith": 183},
+                {"Cycle": "Cycle 8", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 142, "Total Participants": 470, "Friends of the Faith": 106},
+                {"Cycle": "Cycle 7", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 78, "Total Participants": 519, "Friends of the Faith": 327},
+                {"Cycle": "Cycle 7", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 33, "Total Participants": 242, "Friends of the Faith": 189},
+                {"Cycle": "Cycle 7", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 75, "Total Participants": 328, "Friends of the Faith": 56},
+                {"Cycle": "Cycle 7", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 92, "Total Participants": 719, "Friends of the Faith": 577},
+                {"Cycle": "Cycle 7", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 34, "Total Participants": 183, "Friends of the Faith": 135},
+                {"Cycle": "Cycle 7", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 90, "Total Participants": 389, "Friends of the Faith": 87},
+                {"Cycle": "Cycle 7", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 57, "Total Participants": 429, "Friends of the Faith": 207},
+                {"Cycle": "Cycle 7", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 26, "Total Participants": 167, "Friends of the Faith": 93},
+                {"Cycle": "Cycle 7", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 54, "Total Participants": 310, "Friends of the Faith": 50},
+                {"Cycle": "Cycle 7", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 94, "Total Participants": 478, "Friends of the Faith": 328},
+                {"Cycle": "Cycle 7", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 54, "Total Participants": 250, "Friends of the Faith": 146},
+                {"Cycle": "Cycle 7", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 136, "Total Participants": 444, "Friends of the Faith": 120},
+                {"Cycle": "Cycle 6", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 85, "Total Participants": 560, "Friends of the Faith": 361},
+                {"Cycle": "Cycle 6", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 32, "Total Participants": 243, "Friends of the Faith": 191},
+                {"Cycle": "Cycle 6", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 76, "Total Participants": 344, "Friends of the Faith": 62},
+                {"Cycle": "Cycle 6", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 115, "Total Participants": 817, "Friends of the Faith": 651},
+                {"Cycle": "Cycle 6", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 41, "Total Participants": 229, "Friends of the Faith": 161},
+                {"Cycle": "Cycle 6", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 113, "Total Participants": 480, "Friends of the Faith": 92},
+                {"Cycle": "Cycle 6", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 64, "Total Participants": 482, "Friends of the Faith": 223},
+                {"Cycle": "Cycle 6", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 26, "Total Participants": 171, "Friends of the Faith": 90},
+                {"Cycle": "Cycle 6", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 57, "Total Participants": 328, "Friends of the Faith": 58},
+                {"Cycle": "Cycle 6", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 106, "Total Participants": 548, "Friends of the Faith": 380},
+                {"Cycle": "Cycle 6", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 57, "Total Participants": 273, "Friends of the Faith": 172},
+                {"Cycle": "Cycle 6", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 143, "Total Participants": 439, "Friends of the Faith": 100},
+                {"Cycle": "Cycle 5", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 84, "Total Participants": 481, "Friends of the Faith": 299},
+                {"Cycle": "Cycle 5", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 29, "Total Participants": 206, "Friends of the Faith": 154},
+                {"Cycle": "Cycle 5", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 76, "Total Participants": 380, "Friends of the Faith": 93},
+                {"Cycle": "Cycle 5", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 114, "Total Participants": 812, "Friends of the Faith": 654},
+                {"Cycle": "Cycle 5", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 39, "Total Participants": 219, "Friends of the Faith": 151},
+                {"Cycle": "Cycle 5", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 105, "Total Participants": 415, "Friends of the Faith": 95},
+                {"Cycle": "Cycle 5", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 64, "Total Participants": 481, "Friends of the Faith": 221},
+                {"Cycle": "Cycle 5", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 24, "Total Participants": 160, "Friends of the Faith": 91},
+                {"Cycle": "Cycle 5", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 52, "Total Participants": 301, "Friends of the Faith": 62},
+                {"Cycle": "Cycle 5", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 111, "Total Participants": 590, "Friends of the Faith": 411},
+                {"Cycle": "Cycle 5", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 53, "Total Participants": 262, "Friends of the Faith": 164},
+                {"Cycle": "Cycle 5", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 133, "Total Participants": 424, "Friends of the Faith": 89},
+                {"Cycle": "Cycle 4", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 83, "Total Participants": 486, "Friends of the Faith": 304},
+                {"Cycle": "Cycle 4", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 23, "Total Participants": 139, "Friends of the Faith": 96},
+                {"Cycle": "Cycle 4", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 72, "Total Participants": 348, "Friends of the Faith": 81},
+                {"Cycle": "Cycle 4", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 104, "Total Participants": 701, "Friends of the Faith": 553},
+                {"Cycle": "Cycle 4", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 37, "Total Participants": 203, "Friends of the Faith": 135},
+                {"Cycle": "Cycle 4", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 106, "Total Participants": 428, "Friends of the Faith": 118},
+                {"Cycle": "Cycle 4", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 66, "Total Participants": 505, "Friends of the Faith": 245},
+                {"Cycle": "Cycle 4", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 24, "Total Participants": 156, "Friends of the Faith": 85},
+                {"Cycle": "Cycle 4", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 52, "Total Participants": 284, "Friends of the Faith": 54},
+                {"Cycle": "Cycle 4", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 105, "Total Participants": 566, "Friends of the Faith": 389},
+                {"Cycle": "Cycle 4", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 50, "Total Participants": 250, "Friends of the Faith": 153},
+                {"Cycle": "Cycle 4", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 132, "Total Participants": 395, "Friends of the Faith": 86},
+                {"Cycle": "Cycle 3", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 75, "Total Participants": 790, "Friends of the Faith": 578},
+                {"Cycle": "Cycle 3", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 20, "Total Participants": 99, "Friends of the Faith": 52},
+                {"Cycle": "Cycle 3", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 61, "Total Participants": 294, "Friends of the Faith": 76},
+                {"Cycle": "Cycle 3", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 72, "Total Participants": 424, "Friends of the Faith": 303},
+                {"Cycle": "Cycle 3", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 32, "Total Participants": 174, "Friends of the Faith": 124},
+                {"Cycle": "Cycle 3", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 111, "Total Participants": 446, "Friends of the Faith": 142},
+                {"Cycle": "Cycle 3", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 47, "Total Participants": 350, "Friends of the Faith": 164},
+                {"Cycle": "Cycle 3", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 26, "Total Participants": 184, "Friends of the Faith": 112},
+                {"Cycle": "Cycle 3", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 51, "Total Participants": 267, "Friends of the Faith": 50},
+                {"Cycle": "Cycle 3", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 95, "Total Participants": 552, "Friends of the Faith": 399},
+                {"Cycle": "Cycle 3", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 37, "Total Participants": 195, "Friends of the Faith": 136},
+                {"Cycle": "Cycle 3", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 134, "Total Participants": 402, "Friends of the Faith": 90},
+                {"Cycle": "Cycle 2", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 80, "Total Participants": 1014, "Friends of the Faith": 786},
+                {"Cycle": "Cycle 2", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 37, "Total Participants": 210, "Friends of the Faith": 131},
+                {"Cycle": "Cycle 2", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 75, "Total Participants": 386, "Friends of the Faith": 87},
+                {"Cycle": "Cycle 2", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 81, "Total Participants": 574, "Friends of the Faith": 447},
+                {"Cycle": "Cycle 2", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 31, "Total Participants": 151, "Friends of the Faith": 101},
+                {"Cycle": "Cycle 2", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 135, "Total Participants": 549, "Friends of the Faith": 143},
+                {"Cycle": "Cycle 2", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 61, "Total Participants": 430, "Friends of the Faith": 184},
+                {"Cycle": "Cycle 2", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 27, "Total Participants": 186, "Friends of the Faith": 113},
+                {"Cycle": "Cycle 2", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 61, "Total Participants": 331, "Friends of the Faith": 66},
+                {"Cycle": "Cycle 2", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 108, "Total Participants": 610, "Friends of the Faith": 442},
+                {"Cycle": "Cycle 2", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 41, "Total Participants": 225, "Friends of the Faith": 152},
+                {"Cycle": "Cycle 2", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 129, "Total Participants": 362, "Friends of the Faith": 83},
+                {"Cycle": "Cycle 1", "Region": "New South Wales and Australian Capital Territory", "Activity": "Children's Classes", "Number of Activities": 78, "Total Participants": 1004, "Friends of the Faith": 775},
+                {"Cycle": "Cycle 1", "Region": "New South Wales and Australian Capital Territory", "Activity": "Junior Youth Groups", "Number of Activities": 35, "Total Participants": 203, "Friends of the Faith": 123},
+                {"Cycle": "Cycle 1", "Region": "New South Wales and Australian Capital Territory", "Activity": "Study Circles", "Number of Activities": 79, "Total Participants": 418, "Friends of the Faith": 75},
+                {"Cycle": "Cycle 1", "Region": "North Eastern Australia", "Activity": "Children's Classes", "Number of Activities": 77, "Total Participants": 552, "Friends of the Faith": 434},
+                {"Cycle": "Cycle 1", "Region": "North Eastern Australia", "Activity": "Junior Youth Groups", "Number of Activities": 32, "Total Participants": 147, "Friends of the Faith": 97},
+                {"Cycle": "Cycle 1", "Region": "North Eastern Australia", "Activity": "Study Circles", "Number of Activities": 130, "Total Participants": 570, "Friends of the Faith": 113},
+                {"Cycle": "Cycle 1", "Region": "Victoria and Tasmania", "Activity": "Children's Classes", "Number of Activities": 61, "Total Participants": 433, "Friends of the Faith": 186},
+                {"Cycle": "Cycle 1", "Region": "Victoria and Tasmania", "Activity": "Junior Youth Groups", "Number of Activities": 27, "Total Participants": 186, "Friends of the Faith": 113},
+                {"Cycle": "Cycle 1", "Region": "Victoria and Tasmania", "Activity": "Study Circles", "Number of Activities": 53, "Total Participants": 273, "Friends of the Faith": 63},
+                {"Cycle": "Cycle 1", "Region": "Western and Central Australia", "Activity": "Children's Classes", "Number of Activities": 102, "Total Participants": 570, "Friends of the Faith": 404},
+                {"Cycle": "Cycle 1", "Region": "Western and Central Australia", "Activity": "Junior Youth Groups", "Number of Activities": 40, "Total Participants": 221, "Friends of the Faith": 151},
+                {"Cycle": "Cycle 1", "Region": "Western and Central Australia", "Activity": "Study Circles", "Number of Activities": 142, "Total Participants": 422, "Friends of the Faith": 100}
+            ],
+            pioneeringTrends: [
+                { "Date": "Nov-Apr 2022", "Region": "NEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 4, "Homefront Female": 4 },
+                { "Date": "Nov-Apr 2022", "Region": "WCA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 1, "Homefront Female": 4 },
+                { "Date": "Nov-Apr 2022", "Region": "SEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 3, "Homefront Female": 1 },
+                { "Date": "May-Oct 2022", "Region": "NEA", "Int'l Male": 4, "Int'l Female": 1, "Homefront Male": 1, "Homefront Female": 2 },
+                { "Date": "May-Oct 2022", "Region": "SEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 3, "Homefront Female": 3 },
+                { "Date": "May-Oct 2022", "Region": "WCA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 0 },
+                { "Date": "Nov-Apr 2023", "Region": "NEA", "Int'l Male": 2, "Int'l Female": 2, "Homefront Male": 2, "Homefront Female": 2 },
+                { "Date": "Nov-Apr 2023", "Region": "SEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 0 },
+                { "Date": "Nov-Apr 2023", "Region": "WCA", "Int'l Male": 2, "Int'l Female": 1, "Homefront Male": 0, "Homefront Female": 1 },
+                { "Date": "May-Oct 2023", "Region": "NEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 3, "Homefront Female": 1 },
+                { "Date": "May-Oct 2023", "Region": "SEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 4, "Homefront Female": 5 },
+                { "Date": "May-Oct 2023", "Region": "WCA", "Int'l Male": 0, "Int'l Female": 2, "Homefront Male": 0, "Homefront Female": 0 },
+                { "Date": "Nov-Apr 2024", "Region": "NEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 6 },
+                { "Date": "Nov-Apr 2024", "Region": "SEA", "Int'l Male": 1, "Int'l Female": 1, "Homefront Male": 0, "Homefront Female": 1 },
+                { "Date": "Nov-Apr 2024", "Region": "WCA", "Int'l Male": 3, "Int'l Female": 2, "Homefront Male": 0, "Homefront Female": 5 },
+                { "Date": "May-Oct 2024", "Region": "NEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 1, "Homefront Female": 1 },
+                { "Date": "May-Oct 2024", "Region": "SEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 0 },
+                { "Date": "May-Oct 2024", "Region": "WCA", "Int'l Male": 3, "Int'l Female": 6, "Homefront Male": 4, "Homefront Female": 1 },
+                { "Date": "Nov-Apr 2025", "Region": "NEA", "Int'l Male": 1, "Int'l Female": 2, "Homefront Male": 0, "Homefront Female": 1 },
+                { "Date": "Nov-Apr 2025", "Region": "NSW&ACT", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 0 },
+                { "Date": "Nov-Apr 2025", "Region": "VIC&TAS", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 0 },
+                { "Date": "Nov-Apr 2025", "Region": "WCA", "Int'l Male": 0, "Int'l Female": 1, "Homefront Male": 0, "Homefront Female": 4 },
+                { "Date": "May-Oct 2025", "Region": "NEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 1, "Homefront Female": 1 },
+                { "Date": "May-Oct 2025", "Region": "NSW&ACT", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 0 },
+                { "Date": "May-Oct 2025", "Region": "VIC&TAS", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 0 },
+                { "Date": "May-Oct 2025", "Region": "WCA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 1, "Homefront Female": 0 }
+            ],
+            youthMovement: {
+                total: 2978,
+                inStudyCircles: 120,
+                teachingChildrensClasses: 33,
+                animatingJuniorYouth: 66,
+                tutoringStudyCircle: 39,
+                uniqueFacilitators: 106,
+                uniqueEngaged: 178,
+                date: "March 2025"
+            }
+        };
+
+        // --- 2. UTILITY FUNCTIONS ---
+
+        function createLastUpdatedBanner() {
+            return ''; // Banner removed from content area
+        }
+
+        function createStatCard(title, value, colorClass, iconHtml) {
+            return `
+                <div class="stat-card bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4">
+                    <div class="${colorClass} p-3 rounded-full shrink-0">
+                        ${iconHtml}
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">${title}</p>
+                        <p class="text-2xl lg:text-3xl font-bold text-gray-900 mt-1">${value}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createTable(data, title) {
+            if (!data || data.length === 0) return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center text-gray-500">No data available for this selection.</div>`;
+            
+            const headers = Object.keys(data[0]);
+            const headerHtml = headers.map(h => `<th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 sticky top-0 whitespace-nowrap">${h.replace(/_/g, ' ')}</th>`).join('');
+            
+            const bodyHtml = data.map((row, idx) => 
+                `<tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-sky-50 transition-colors duration-150">
+                    ${headers.map(h => {
+                        const cellValue = row[h];
+                        const formattedValue = (typeof cellValue === 'number') 
+                            ? cellValue.toLocaleString('en-US')
+                            : (row[h] === undefined ? '' : row[h]);
+                        return `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 border-b border-gray-100">${formattedValue}</td>`;
+                    }).join('')}
+                </tr>`
+            ).join('');
+
+            return `
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
+                        <h3 class="text-lg font-semibold text-gray-800">${title}</h3>
+                    </div>
+                    <div class="overflow-x-auto custom-scrollbar max-h-[500px]">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead><tr>${headerHtml}</tr></thead>
+                            <tbody>${bodyHtml}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }
+
+        function createPivotedTable(data, title, activityKeys, filterRegion = 'All') {
+            let filteredData = data;
+            if(filterRegion !== 'All') {
+                filteredData = data.filter(d => d.Region === filterRegion);
+            }
+
+            const regions = [...new Set(filteredData.map(item => item.Region))].filter(r => r !== 'South-Eastern Australia');
+            const activities = activityKeys;
+            
+            const pivotData = regions.map(region => {
+                const row = { Region: region };
+                let all_no = 0, all_total = 0, all_fof = 0;
+                activities.forEach(activity => {
+                    const activityData = filteredData.find(d => d.Region === region && d.Category === activity);
+                    const no = activityData ? (Number(activityData['Number of Activities']) || 0) : 0;
+                    const total = activityData ? (Number(activityData['Total Participants']) || 0) : 0;
+                    const fof = activityData ? (Number(activityData['Friends of the Faith']) || 0) : 0;
+                    row[`${activity}_no`] = no; row[`${activity}_total`] = total; row[`${activity}_fof`] = fof;
+                    all_no += no; all_total += total; all_fof += fof;
+                });
+                row['all_no'] = all_no; row['all_total'] = all_total; row['all_fof'] = all_fof;
+                return row;
+            });
+
+            const bodyHtml = pivotData.map(row => `
+                <tr class="hover:bg-sky-50 transition-colors duration-150 border-b border-gray-100">
+                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-800 border-r bg-white sticky left-0 z-10 shadow-sm">${row.Region}</td>
+                    ${activities.map(act => `
+                        <td class="px-2 py-2 text-center text-gray-600 border-r border-dashed border-gray-200">${row[`${act}_no`].toLocaleString()}</td>
+                        <td class="px-2 py-2 text-center text-gray-600 border-r border-dashed border-gray-200">${row[`${act}_total`].toLocaleString()}</td>
+                        <td class="px-2 py-2 text-center text-gray-600 border-r border-gray-300 bg-gray-50/50">${row[`${act}_fof`].toLocaleString()}</td>
+                    `).join('')}
+                    <td class="px-2 py-2 text-center font-bold text-sky-700 bg-sky-50 border-r border-white">${row.all_no.toLocaleString()}</td>
+                    <td class="px-2 py-2 text-center font-bold text-sky-700 bg-sky-50 border-r border-white">${row.all_total.toLocaleString()}</td>
+                    <td class="px-2 py-2 text-center font-bold text-sky-700 bg-sky-50">${row.all_fof.toLocaleString()}</td>
+                </tr>`).join('');
+                
+            const activityHeaders = activities.map(act => `<th colspan="3" class="px-4 py-2 border-r border-gray-300 text-center bg-gray-100 text-gray-700 font-semibold text-xs uppercase">${act}</th>`).join('');
+            const subHeaders = activities.map(() => `<th class="px-2 py-1 border-r border-gray-200 text-xs font-normal text-gray-500">No.</th><th class="px-2 py-1 border-r border-gray-200 text-xs font-normal text-gray-500">Part.</th><th class="px-2 py-1 border-r border-gray-300 text-xs font-normal text-gray-500 bg-gray-50">FoF</th>`).join('');
+
+            return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-8">
+                    <div class="px-6 py-4 border-b border-gray-100"><h3 class="text-lg font-semibold text-gray-800">${title}</h3></div>
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="min-w-full text-sm border-collapse">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th rowspan="2" class="px-4 py-3 border-r border-gray-300 text-left font-semibold text-gray-700 sticky left-0 z-20 bg-gray-100 shadow-sm text-xs uppercase">Region</th>
+                                    ${activityHeaders}
+                                    <th colspan="3" class="px-4 py-2 text-center bg-sky-100 text-sky-800 font-bold border-b border-sky-200 text-xs uppercase">Totals</th>
+                                </tr>
+                                <tr>
+                                    ${subHeaders}
+                                    <th class="px-2 py-1 text-xs font-semibold text-sky-700 bg-sky-50 border-r border-sky-100">Act.</th>
+                                    <th class="px-2 py-1 text-xs font-semibold text-sky-700 bg-sky-50 border-r border-sky-100">Part.</th>
+                                    <th class="px-2 py-1 text-xs font-semibold text-sky-700 bg-sky-50">FoF</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white text-gray-700">${bodyHtml}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }
+
+        // --- 3. LOGIC FUNCTIONS (Defined as Functions for Hoisting) ---
+
+        function renderTabs() {
+            const tabNames = ['Main Dashboard', 'Cycle Data', 'Bi-Annual Survey', 'Cluster Development', 'Pioneering', 'Youth Movement'];
+            const container = document.getElementById('tabs-container');
+            if (container) {
+                container.innerHTML = tabNames.map(name => {
+                    const isActive = currentTab === name;
+                    return `
+                        <button data-tab-name="${name}" class="tab-button whitespace-nowrap px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 focus:outline-none ${isActive ? 'bg-sky-100 text-sky-800 shadow-sm ring-1 ring-sky-200' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}">
+                            ${name}
+                        </button>
+                    `;
+                }).join('');
+                
+                document.querySelectorAll('.tab-button').forEach(button => 
+                    button.addEventListener('click', () => renderContent(button.dataset.tabName))
+                );
+            }
+        }
+
+        function populateRegionFilter() {
+            if (!regionSelect) return;
+            // clear existing except first
+            while (regionSelect.options.length > 1) { regionSelect.remove(1); }
+            
+            const sourceData = appData.regional.length > 0 ? appData.regional : initialData.regional;
+            const regions = [...new Set(sourceData.map(item => item.Region))].sort();
+            regions.forEach(region => {
+                const option = document.createElement('option');
+                option.value = region;
+                option.textContent = region;
+                regionSelect.appendChild(option);
+            });
+            
+            // Clean event listener assignment
+            regionSelect.onchange = (e) => {
+                currentRegionFilter = e.target.value;
+                renderContent(currentTab);
+            };
+        }
+
+        function calculateTotals(regionFilter) {
+            const totals = {};
+            const activities = ["Devotional Meetings", "Children's Classes", "Junior Youth Groups", "Study Circles"];
+            const sourceData = appData.regional.length > 0 ? appData.regional : initialData.regional;
+
+            activities.forEach(activity => {
+                const rowsForActivity = sourceData.filter(row => {
+                    const matchesActivity = row.Category === activity;
+                    const matchesRegion = regionFilter === 'All' || row.Region === regionFilter;
+                    return matchesActivity && matchesRegion;
+                });
+
+                totals[activity] = {
+                    "Activity": activity,
+                    "Number of Activities": rowsForActivity.reduce((sum, row) => sum + (Number(row["Number of Activities"]) || 0), 0),
+                    "Total Participants": rowsForActivity.reduce((sum, row) => sum + (Number(row["Total Participants"]) || 0), 0),
+                    "Friends of the Faith": rowsForActivity.reduce((sum, row) => sum + (Number(row["Friends of the Faith"]) || 0), 0),
+                };
+            });
+            
+            return Object.values(totals);
+        }
+
+        function renderCharts() {
+            Object.values(chartInstances).forEach(chart => chart.destroy());
+            const COLORS = ['#0284c7', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777']; 
+
+            if (currentTab === 'Main Dashboard') {
+                const regionalCtx = document.getElementById('regionalBarChart');
+                const pieCtx = document.getElementById('participantPieChart');
+                let displayData = appData.regional.length > 0 ? appData.regional : initialData.regional;
+                
+                if (regionalCtx) {
+                    let labels, datasets;
+                    if (currentRegionFilter === 'All') {
+                         labels = [...new Set(displayData.map(item => item.Region))].filter(r => r !== 'South-Eastern Australia');
+                         const activityTypes = [...new Set(displayData.map(item => item.Category))];
+                         datasets = activityTypes.map((activity, index) => ({
+                            label: activity,
+                            data: labels.map(label => displayData.filter(d => d.Region === label && d.Category === activity).reduce((sum, row) => sum + (Number(row['Number of Activities']) || 0), 0)),
+                            backgroundColor: COLORS[index % COLORS.length],
+                            borderRadius: 4
+                        }));
+                    } else {
+                        labels = ["Devotional Meetings", "Children's Classes", "Junior Youth Groups", "Study Circles"];
+                        datasets = [{
+                            label: currentRegionFilter,
+                            data: labels.map(act => displayData.filter(d => d.Region === currentRegionFilter && d.Category === act).reduce((sum, row) => sum + (Number(row['Number of Activities']) || 0), 0)),
+                            backgroundColor: [COLORS[0], COLORS[1], COLORS[2], COLORS[3]],
+                            borderRadius: 6
+                        }];
+                    }
+                    chartInstances.regionalBar = new Chart(regionalCtx, { 
+                        type: 'bar', data: { labels, datasets }, 
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { x: { stacked: currentRegionFilter === 'All' }, y: { stacked: currentRegionFilter === 'All', beginAtZero: true } } } 
+                    });
+                }
+
+                if (pieCtx) {
+                    const currentStats = calculateTotals(currentRegionFilter);
+                    const participantData = currentStats.map(d => ({ name: d.Activity, value: Number(d['Total Participants']) })).filter(d => !isNaN(d.value) && d.value > 0);
+                    chartInstances.pie = new Chart(pieCtx, { 
+                        type: 'doughnut', data: { labels: participantData.map(d => d.name), datasets: [{ data: participantData.map(d => d.value), backgroundColor: COLORS, borderWidth: 0, hoverOffset: 4 }] }, 
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } 
+                    });
+                }
+            } else if (currentTab === 'Youth Movement') {
+                 const youthData = appData.youthMovement.total > 0 ? appData.youthMovement : initialData.youthMovement;
+                 const ctx = document.getElementById('youthPolarChart');
+                 if (ctx) {
+                    chartInstances.youth = new Chart(ctx, {
+                        type: 'polarArea',
+                        data: {
+                            labels: ['In Study Circles', 'Teaching Children', 'Animating JY', 'Tutoring SC'],
+                            datasets: [{
+                                data: [youthData.inStudyCircles, youthData.teachingChildrensClasses, youthData.animatingJuniorYouth, youthData.tutoringStudyCircle],
+                                backgroundColor: ['rgba(124, 58, 237, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(219, 39, 119, 0.7)', 'rgba(220, 38, 38, 0.7)'],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+                    });
+                 }
+            } else if (currentTab === 'Bi-Annual Survey') {
+                const surveyData = appData.survey.length > 0 ? appData.survey : initialData.survey;
+                
+                // Helper to sort dates chronologically (Mon-YY) for charts
+                const dateValue = (d) => {
+                    const [mon, yr] = d.split('-');
+                    const months = { 'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11 };
+                    return (parseInt(yr) + 2000) * 12 + months[mon];
+                };
+
+                const labels = [...new Set(surveyData.map(d => d.Date))].sort((a, b) => dateValue(a) - dateValue(b));
+                const activities = [...new Set(surveyData.map(d => d.Activity))];
+
+                ['surveyGroupsChart', 'surveyParticipantsChart', 'surveyFofChart'].forEach((id, idx) => {
+                    const ctx = document.getElementById(id);
+                    if(!ctx) return;
+                    const metric = idx === 0 ? 'Groups' : idx === 1 ? 'Participants' : 'FoF';
+                    const datasets = activities.map((activity, i) => ({
+                        label: activity,
+                        data: labels.map(label => {
+                            const p = surveyData.find(d => d.Date === label && d.Activity === activity);
+                            return p ? p[metric] : null;
+                        }),
+                        borderColor: COLORS[i % COLORS.length],
+                        tension: 0.3,
+                        fill: false
+                    }));
+                    chartInstances[id] = new Chart(ctx, { type: 'line', data: { labels, datasets }, options: { maintainAspectRatio: false, plugins: {legend: {position: 'bottom'}}} });
+                });
+             } else if (currentTab === 'Pioneering') {
+                const trendsData = appData.pioneeringTrends.length > 0 ? appData.pioneeringTrends : initialData.pioneeringTrends;
+                
+                // FIXED: Sort labels chronologically to prevent jumbled data
+                // Logic: Sort by Year first. If years equal, "Nov-Apr" (0) comes before "May-Oct" (1)
+                const labels = [...new Set(trendsData.map(d => d.Date))].sort((a, b) => {
+                    const [rangeA, yearA] = a.split(' ');
+                    const [rangeB, yearB] = b.split(' ');
+                    const yA = parseInt(yearA) || 0;
+                    const yB = parseInt(yearB) || 0;
+                    
+                    if (yA !== yB) return yA - yB;
+                    
+                    // Assign values: Nov-Apr = 0, May-Oct = 1
+                    const valA = rangeA.startsWith('Nov') ? 0 : 1;
+                    const valB = rangeB.startsWith('Nov') ? 0 : 1;
+                    return valA - valB;
+                });
+
+                const drawPioneerChart = (id, type) => {
+                     const ctx = document.getElementById(id);
+                     if(!ctx) return;
+                     chartInstances[id] = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Male', data: labels.map(d => trendsData.filter(x => x.Date === d).reduce((a,b) => a + (b[`${type} Male`]||0), 0)), backgroundColor: '#3b82f6' },
+                                { label: 'Female', data: labels.map(d => trendsData.filter(x => x.Date === d).reduce((a,b) => a + (b[`${type} Female`]||0), 0)), backgroundColor: '#ec4899' }
+                            ]
+                        },
+                        options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
+                     });
+                };
+                
+                 // Defer execution to ensure DOM is updated
+                 setTimeout(() => {
+                    drawPioneerChart('internationalPioneerTrendsChart', "Int'l");
+                    drawPioneerChart('homefrontPioneerTrendsChart', "Homefront");
+                 }, 0);
+
+             } else if (currentTab === 'Cycle Data') {
+                 const ctx = document.getElementById('cycleGroupsChart');
+                 if(ctx) {
+                    const cycleData = appData.cycle.length > 0 ? appData.cycle : initialData.cycle;
+                    const filteredCycles = currentRegionFilter === 'All' ? cycleData : cycleData.filter(d => d.Region === currentRegionFilter);
+                    const labels = [...new Set(filteredCycles.map(d => d.Cycle))].sort((a,b) => parseInt(a.replace("Cycle ", "")) - parseInt(b.replace("Cycle ", "")));
+                    
+                    let datasets;
+                    if (currentRegionFilter === 'All') {
+                         const regions = [...new Set(filteredCycles.map(d => d.Region))];
+                         datasets = regions.map((r, i) => ({
+                            label: r,
+                            data: labels.map(c => filteredCycles.filter(d => d.Cycle === c && d.Region === r).reduce((acc, curr) => acc + (curr["Number of Activities"] || curr.No || 0), 0)),
+                            backgroundColor: COLORS[i % COLORS.length]
+                        }));
+                    } else {
+                        const activities = [...new Set(filteredCycles.map(d => d.Activity))];
+                        datasets = activities.map((act, i) => ({
+                            label: act,
+                            data: labels.map(c => filteredCycles.filter(d => d.Cycle === c && d.Activity === act).reduce((acc, curr) => acc + (curr["Number of Activities"] || curr.No || 0), 0)),
+                            backgroundColor: COLORS[i % COLORS.length]
+                        }));
+                    }
+                    chartInstances.cycleGroups = new Chart(ctx, { type: 'bar', data: {labels, datasets}, options: {maintainAspectRatio: false, scales: {x:{stacked:true}, y:{stacked:true}}}});
+                 }
+             }
+        }
+
+        function renderMainDashboard() {
+            const data = calculateTotals(currentRegionFilter);
+            const totals = data.reduce((acc, curr) => {
+                acc.activities += curr["Number of Activities"] || 0;
+                acc.participants += curr["Total Participants"] || 0;
+                acc.friends += curr["Friends of the Faith"] || 0;
+                return acc;
+            }, { activities: 0, participants: 0, friends: 0 });
+
+            const filterTitle = currentRegionFilter === 'All' ? 'National Overview' : `${currentRegionFilter} Overview`;
+            const tableData = appData.regional.length > 0 ? appData.regional : initialData.regional;
+
+            return `
+                <div class="space-y-6">
+                    ${createLastUpdatedBanner()}
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">${filterTitle}</h2>
+                    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        ${createStatCard('Total Activities', totals.activities.toLocaleString(), 'bg-sky-100 text-sky-600', '<svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a3.001 3.001 0 015.63 0m0 0a3.001 3.001 0 015.63 0M12 12v9m-4-6h8"/></svg>')}
+                        ${createStatCard('Total Participants', totals.participants.toLocaleString(), 'bg-emerald-100 text-emerald-600', '<svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m9 5.197a6 6 0 00-3.75-5.493M15 21a6 6 0 00-9-5.197M9 11a4 4 0 100-8 4 4 0 000 8z" /></svg>')}
+                        ${createStatCard('Friends of the Faith', totals.friends.toLocaleString(), 'bg-amber-100 text-amber-600', '<svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>')}
+                    </section>
+                    ${createTable(data, 'Key Metrics by Activity')}
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 class="font-semibold text-lg mb-6 text-gray-800">Activity Distribution</h3>
+                            <div class="h-80"><canvas id="regionalBarChart"></canvas></div>
+                        </section>
+                        <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 class="font-semibold text-lg mb-6 text-gray-800">Participant Share</h3>
+                            <div class="h-80 flex justify-center"><canvas id="participantPieChart"></canvas></div>
+                        </section>
+                    </div>
+                    ${createPivotedTable(tableData, 'Detailed Regional Breakdown', ["Devotional Meetings", "Children's Classes", "Junior Youth Groups", "Study Circles"], currentRegionFilter)}
+                </div>`;
+        }
+
+        function renderYouthMovementPage() {
+             const youthData = appData.youthMovement.total > 0 ? appData.youthMovement : initialData.youthMovement;
+             const summaryCards = `
+                <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    ${createStatCard('Total Baháʼí Youth', youthData.total.toLocaleString(), 'bg-green-100 text-green-600', '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m9 5.197a6 6 0 00-3.75-5.493M15 21a6 6 0 00-9-5.197M9 11a4 4 0 100-8 4 4 0 000 8z" /></svg>')}
+                    ${createStatCard('Engaged', youthData.uniqueEngaged.toLocaleString(), 'bg-teal-100 text-teal-600', '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M12 21v-1m0-16a9 9 0 110 18 9 9 0 010-18z"/></svg>')}
+                    ${createStatCard('Unique Facilitators', youthData.uniqueFacilitators.toLocaleString(), 'bg-blue-100 text-blue-600', '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>')}
+                    <div class="stat-card bg-indigo-50 p-6 rounded-xl shadow-sm border border-indigo-100 flex flex-col justify-center items-center text-center">
+                        <p class="text-sm font-medium text-indigo-500 uppercase">Engagement Rate</p>
+                        <p class="text-3xl font-bold text-indigo-700 mt-1">${youthData.total > 0 ? Math.round((youthData.uniqueEngaged / youthData.total) * 100) : 0}%</p>
+                        <p class="text-xs text-indigo-400 mt-1">of total youth</p>
+                    </div>
+                </section>
+            `;
+
+            return `
+                <div class="space-y-6">
+                    ${createLastUpdatedBanner()}
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r shadow-sm">
+                        <p class="text-sm text-yellow-700"><strong>Note:</strong> The data is based on Baháʼí youth only and needs verification.</p>
+                    </div>
+                    ${summaryCards}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 class="font-semibold text-lg mb-6 text-gray-800">Areas of Service</h3>
+                            <div class="h-80"><canvas id="youthPolarChart"></canvas></div>
+                        </section>
+                        <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 class="font-semibold text-lg mb-6 text-gray-800">Key Statistics</h3>
+                            <div class="space-y-4">
+                                ${[
+                                    {l: 'In Study Circles', v: youthData.inStudyCircles, c: 'bg-purple-100 text-purple-700'},
+                                    {l: 'Teaching Children', v: youthData.teachingChildrensClasses, c: 'bg-yellow-100 text-yellow-700'},
+                                    {l: 'Animating Junior Youth', v: youthData.animatingJuniorYouth, c: 'bg-pink-100 text-pink-700'},
+                                    {l: 'Tutoring Study Circles', v: youthData.tutoringStudyCircle, c: 'bg-red-100 text-red-700'},
+                                ].map(item => `
+                                    <div class="flex items-center justify-between p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                                        <span class="font-medium text-gray-700">${item.l}</span>
+                                        <span class="px-3 py-1 rounded-full text-sm font-bold ${item.c}">${item.v}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderContent(tabName) {
+            currentTab = tabName;
+            renderTabs();
+            
+            // Date Visibility Logic
+            const dateDisplay = document.getElementById('header-date');
+            if (dateDisplay) {
+                if (tabName === 'Main Dashboard') {
+                    dateDisplay.textContent = 'Last updated: 10 March 2026';
+                    dateDisplay.classList.remove('hidden');
+                } else if (['Bi-Annual Survey', 'Pioneering'].includes(tabName)) {
+                    dateDisplay.textContent = 'Last updated: November 2025';
+                    dateDisplay.classList.remove('hidden');
+                } else if (['Cycle Data', 'Youth Movement'].includes(tabName)) {
+                    const todayStr = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
+                    dateDisplay.textContent = `Last updated: ${todayStr}`;
+                    dateDisplay.classList.remove('hidden');
+                } else {
+                    dateDisplay.classList.add('hidden');
+                }
+            }
+            
+            if (regionFilterContainer) {
+                if (tabName === 'Main Dashboard' || tabName === 'Cycle Data') {
+                    regionFilterContainer.classList.remove('hidden');
+                } else {
+                    regionFilterContainer.classList.add('hidden');
+                }
+            }
+            
+            let html = '';
+            if (tabName === 'Main Dashboard') html = renderMainDashboard();
+            else if (tabName === 'Youth Movement') html = renderYouthMovementPage();
+            else if (tabName === 'Bi-Annual Survey') {
+                const surveyData = appData.survey.length > 0 ? appData.survey : initialData.survey;
+                
+                // Helper to sort dates chronologically (Mon-YY)
+                const dateValue = (d) => {
+                    const [mon, yr] = d.split('-');
+                    const months = { 'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11 };
+                    return (parseInt(yr) + 2000) * 12 + months[mon];
+                };
+
+                const labels = [...new Set(surveyData.map(d => d.Date))].sort((a, b) => dateValue(a) - dateValue(b));
+                const activities = [...new Set(surveyData.map(d => d.Activity))];
+
+                html = `
+                <div class="space-y-6">
+                    ${createLastUpdatedBanner()}
+                    <div class="grid grid-cols-1 gap-6">
+                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 class="font-semibold mb-4">Groups</h3><div class="h-80"><canvas id="surveyGroupsChart"></canvas></div></div>
+                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 class="font-semibold mb-4">Participants</h3><div class="h-80"><canvas id="surveyParticipantsChart"></canvas></div></div>
+                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 class="font-semibold mb-4">Friends of the Faith</h3><div class="h-80"><canvas id="surveyFofChart"></canvas></div></div>
+                    </div>
+                    <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-r mt-4">
+                        <p class="text-sm text-red-700"><strong>Note:</strong> The drop in participation in Children's classes is a result of a change in the October 2025 Bi-annual survey where children's festivals were no longer reported as part of the regular Children's Classes and reported separately instead.</p>
+                    </div>
+                </div>`; 
+            } else if (tabName === 'Pioneering') {
+                 html = `
+                 <div class="space-y-8">
+                    ${createLastUpdatedBanner()}
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 class="font-semibold mb-4 text-xl">International Pioneers</h3><div class="h-80"><canvas id="internationalPioneerTrendsChart"></canvas></div></div>
+                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 class="font-semibold mb-4 text-xl">Homefront Pioneers</h3><div class="h-80"><canvas id="homefrontPioneerTrendsChart"></canvas></div></div>
+                    </div>
+                 </div>`;
+                 
+                 const trendsData = appData.pioneeringTrends.length > 0 ? appData.pioneeringTrends : initialData.pioneeringTrends;
+                 // Sort labels chronologically (Nov-Apr before May-Oct)
+                 const labels = [...new Set(trendsData.map(d => d.Date))].sort((a, b) => {
+                    const [rangeA, yearA] = a.split(' ');
+                    const [rangeB, yearB] = b.split(' ');
+                    const yA = parseInt(yearA) || 0;
+                    const yB = parseInt(yearB) || 0;
+                    
+                    if (yA !== yB) return yA - yB;
+                    // Assign values: Nov-Apr = 0, May-Oct = 1
+                    const valA = rangeA.startsWith('Nov') ? 0 : 1;
+                    const valB = rangeB.startsWith('Nov') ? 0 : 1;
+                    return valA - valB;
+                });
+                 
+                 const drawPioneerChart = (id, type) => {
+                     const ctx = document.getElementById(id);
+                     if(!ctx) return;
+                     chartInstances[id] = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Male', data: labels.map(d => trendsData.filter(x => x.Date === d).reduce((a,b) => a + (b[`${type} Male`]||0), 0)), backgroundColor: '#3b82f6' },
+                                { label: 'Female', data: labels.map(d => trendsData.filter(x => x.Date === d).reduce((a,b) => a + (b[`${type} Female`]||0), 0)), backgroundColor: '#ec4899' }
+                            ]
+                        },
+                        options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
+                     });
+                 };
+
+                 setTimeout(() => {
+                    drawPioneerChart('internationalPioneerTrendsChart', "Int'l");
+                    drawPioneerChart('homefrontPioneerTrendsChart', "Homefront");
+                 }, 0);
+
+            } else if (tabName === 'Cycle Data') {
+                 html = `
+                 <div class="space-y-6">
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4"><p class="text-sm text-yellow-700"><strong>Note:</strong> The data may be incorrect and needs to be verified.</p></div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 class="font-semibold mb-4">Activity Trends per Cycle (${currentRegionFilter === 'All' ? 'By Region' : 'By Activity'})</h3><div class="h-96"><canvas id="cycleGroupsChart"></canvas></div></div>
+                    ${createTable((appData.cycle.length > 0 ? appData.cycle : initialData.cycle).filter(d => currentRegionFilter === 'All' || d.Region === currentRegionFilter), `Detailed Cycle Data (${currentRegionFilter})`)}
+                 </div>`;
+            } else if (tabName === 'Cluster Development') {
+                 const clusterData = appData.cluster.length > 0 ? appData.cluster : initialData.cluster;
+                 const getStatusColor = (s) => !s ? '' : s.includes('3rd') ? 'bg-green-100 text-green-800' : s.includes('2nd') ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800';
+                 const rows = clusterData.map(row => `
+                    <tr class="hover:bg-gray-50 border-b border-gray-100">
+                        <td class="px-6 py-4 text-sm font-medium text-gray-700">${row.Region} - ${row.Cluster}</td>
+                        <td class="px-6 py-4 text-sm text-center"><span class="px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(row.R25F)}">${row.R25F}</span></td>
+                        <td class="px-6 py-4 text-sm text-center"><span class="px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(row.R26F)}">${row.R26F}</span></td>
+                    </tr>
+                 `).join('');
+                 
+                 html = `
+                 <div class="space-y-6">
+                    ${createLastUpdatedBanner()}
+                     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r">
+                        <p class="text-sm text-yellow-700"><strong>Note:</strong> This page is still under development.</p>
+                    </div>
+                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50"><h3 class="font-semibold text-gray-800">Cluster Milestone Status</h3></div>
+                        <div class="overflow-x-auto custom-scrollbar max-h-[600px]"><table class="min-w-full"><thead><tr><th class="px-6 py-3 text-left bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider sticky top-0">Cluster</th><th class="px-6 py-3 bg-gray-50 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider sticky top-0">Ridván 2025</th><th class="px-6 py-3 bg-gray-50 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider sticky top-0">Ridván 2026</th></tr></thead><tbody>${rows}</tbody></table></div>
+                     </div>
+                 </div>`;
+            }
+
+            if (contentContainer) contentContainer.innerHTML = html;
+            setTimeout(renderCharts, 50);
+        }
+
+        function refreshUIIfActive(tabName) {
+            if (loader) loader.classList.add('hidden');
+            if (dashboard) dashboard.classList.remove('hidden');
+            if (appData.regional.length > 0 && regionSelect && regionSelect.options.length === 1) {
+                populateRegionFilter();
+            }
+            if (currentTab === tabName || tabName === 'Main Dashboard') {
+                renderContent(currentTab);
+            }
+        }
+
+        function setupListeners() {
+            if (!user) return;
+            // Updated regional_data_v9 to force a fresh seed with new image data
+            const collections = ['regional_data_v9', 'survey_data', 'cluster_data', 'cycle_data_v3', 'pioneering_data'];
+            const mapping = {
+                'regional_data_v9': 'regional', 'survey_data': 'survey', 'cluster_data': 'cluster', 
+                'cycle_data_v3': 'cycle', 'pioneering_data': 'pioneeringTrends'
+            };
+            const tabMapping = {
+                'regional_data_v9': 'Main Dashboard', 'survey_data': 'Bi-Annual Survey', 
+                'cluster_data': 'Cluster Development', 'cycle_data_v3': 'Cycle Data', 'pioneering_data': 'Pioneering'
+            };
+
+            collections.forEach(colName => {
+                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', colName), (snap) => {
+                    const data = snap.docs.map(d => d.data());
+                    if (data.length > 0) {
+                        appData[mapping[colName]] = data;
+                        refreshUIIfActive(tabMapping[colName]);
+                    }
+                });
+            });
+            
+            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'youth_data', 'summary'), (snap) => {
+                if (snap.exists()) {
+                    appData.youthMovement = snap.data();
+                    refreshUIIfActive('Youth Movement');
+                }
+            });
+        }
+        
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth Error:", error);
+                if (loader) loader.classList.add('hidden');
+                if (dashboard) dashboard.classList.remove('hidden');
+            }
+        };
+
+        async function seedData() {
+            if (!user) return;
+            try {
+                // Check for v9 regional data (New Seed)
+                const checkRef = collection(db, 'artifacts', appId, 'public', 'data', 'regional_data_v9');
+                const snapshot = await getDocs(checkRef);
+                
+                const cycleCheckRef = collection(db, 'artifacts', appId, 'public', 'data', 'cycle_data_v3');
+                const cycleSnapshot = await getDocs(cycleCheckRef);
+
+                const upload = async (c, d) => { 
+                    if (!d || !Array.isArray(d)) {
+                        console.error(`Skipping ${c}: Data is not an array`, d);
+                        return;
+                    }
+                    const ref = collection(db, 'artifacts', appId, 'public', 'data', c);
+                    for(const i of d) await setDoc(doc(ref), i);
+                };
+
+                if (snapshot.empty) {
+                    console.log("Seeding v9 data...");
+                    await upload('regional_data_v9', initialData.regional);
+                    
+                    const surveyRef = collection(db, 'artifacts', appId, 'public', 'data', 'survey_data');
+                    if((await getDocs(surveyRef)).empty) await upload('survey_data', initialData.survey);
+                    
+                    const clusterRef = collection(db, 'artifacts', appId, 'public', 'data', 'cluster_data');
+                    if((await getDocs(clusterRef)).empty) await upload('cluster_data', initialData.cluster);
+                    
+                    if(cycleSnapshot.empty) await upload('cycle_data_v3', initialData.cycle);
+
+                    const pioneerRef = collection(db, 'artifacts', appId, 'public', 'data', 'pioneering_data');
+                    if((await getDocs(pioneerRef)).empty) await upload('pioneering_data', initialData.pioneeringTrends);
+                    
+                    if (initialData.youthMovement) {
+                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'youth_data', 'summary'), initialData.youthMovement);
+                    }
+                    console.log("Seeded.");
+                } else if (cycleSnapshot.empty) {
+                     await upload('cycle_data_v3', initialData.cycle);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        // --- 4. STARTUP SEQUENCE ---
+        
+        // 1. Grab DOM Elements (This works because type="module" defers execution)
+        contentContainer = document.getElementById('content-container');
+        regionSelect = document.getElementById('regionSelect');
+        regionFilterContainer = document.getElementById('region-filter-container');
+        loader = document.getElementById('loader');
+        dashboard = document.getElementById('dashboard-container');
+        
+        // Set Header Date with "Last updated:" prefix
+        const dateDisplay = document.getElementById('header-date');
+        if (dateDisplay) {
+            dateDisplay.textContent = `Last updated: 10 March 2026`;
+        }
+            
+        // 2. Initial Render with Empty/Local Data to prevent blank screen
+        populateRegionFilter();
+        renderContent(currentTab);
+        
+        // 3. Failsafe
+        setTimeout(() => {
+            if (loader && !loader.classList.contains('hidden')) {
+                loader.classList.add('hidden');
+                dashboard.classList.remove('hidden');
+            }
+        }, 2000);
+
+        // 4. Start Auth & Listeners
+        initAuth().then(() => {
+            // Auth initiated
+        });
+        
+        onAuthStateChanged(auth, async (u) => {
+            if (u) {
+                user = u;
+                await seedData();
+                setupListeners();
+            }
+        });
+
+    </script>
+</body>
+</html>
