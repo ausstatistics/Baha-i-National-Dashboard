@@ -90,7 +90,14 @@
 
         // --- 1. CONFIG & GLOBAL STATE ---
         // REPLACE 'null' WITH YOUR FIREBASE CONFIG OBJECT IF HOSTING EXTERNALLY
-        const MY_FIREBASE_CONFIG = null; 
+        const MY_FIREBASE_CONFIG = {
+ 	 apiKey: "AIzaSyCuRbKwzeW0li7SCiWrc19JrjlcDR4U2qI",
+ 	 authDomain: "baha-i-national-dashboard.firebaseapp.com",
+ 	 projectId: "baha-i-national-dashboard",
+ 	 storageBucket: "baha-i-national-dashboard.firebasestorage.app",
+ 	 messagingSenderId: "749050239895",
+ 	 appId: "1:749050239895:web:28130d0f0658c5fd7c42d2"
+	}; 
         
         let firebaseConfig;
         if (typeof __firebase_config !== 'undefined') {
