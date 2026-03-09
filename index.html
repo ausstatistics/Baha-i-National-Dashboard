@@ -89,12 +89,28 @@
         import { getFirestore, collection, doc, getDocs, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 1. CONFIG & GLOBAL STATE ---
-        const firebaseConfig = { AIzaSyCuRbKwzeW0li7SCiWrc19JrjlcDR4U2qI };
-        const appId = 'baha-i-national-dashboard';
+        // REPLACE 'null' WITH YOUR FIREBASE CONFIG OBJECT IF HOSTING EXTERNALLY
+        const MY_FIREBASE_CONFIG = null; 
         
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        let firebaseConfig;
+        if (typeof __firebase_config !== 'undefined') {
+            firebaseConfig = JSON.parse(__firebase_config); // Runs in the AI Canvas
+        } else if (MY_FIREBASE_CONFIG) {
+            firebaseConfig = MY_FIREBASE_CONFIG; // Runs on GitHub Pages
+        }
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'bahai-dashboard-app';
+        
+        let app = null, auth = null, db = null;
+        if (firebaseConfig) {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } catch(e) {
+                console.error("Firebase init error:", e);
+            }
+        }
 
         // DOM Elements (assigned in init sequence at bottom)
         let contentContainer, regionSelect, regionFilterContainer, loader, dashboard;
@@ -141,7 +157,7 @@
             ],
             cluster: [
                 { Region: "New South Wales & Australian Capital Territory", Cluster: "Wentworth", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG", R25F: "IPG+", R26F: "IPG+"},
-                { Region: "New South Wales & Australian Capital Territory", Cluster: "The Hills", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG", R25F: "IPG+", R26F: "IPG+"},
+                { Region: "New South Wales & Australian Capital Territory", Cluster: "The Hills", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
                 { Region: "New South Wales & Australian Capital Territory", Cluster: "ACT SE", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG+", R25F: "IPG+", R26F: "IPG+"},
                 { Region: "New South Wales & Australian Capital Territory", Cluster: "Blue Mountains", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "IPG", R26F: "IPG"},
                 { Region: "New South Wales & Australian Capital Territory", Cluster: "North Shore", R22A: "IPG", R23F: "IPG", R23A: "IPG", R24F: "IPG", R24A: "IPG", R25F: "IPG", R26F: "IPG"},
@@ -970,7 +986,7 @@
         }
 
         function setupListeners() {
-            if (!user) return;
+            if (!user || !db) return;
             // Updated regional_data_v9 to force a fresh seed with new image data
             const collections = ['regional_data_v9', 'survey_data', 'cluster_data', 'cycle_data_v3', 'pioneering_data'];
             const mapping = {
@@ -1001,6 +1017,7 @@
         }
         
         async function initAuth() {
+            if (!auth) return;
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
@@ -1015,7 +1032,7 @@
         };
 
         async function seedData() {
-            if (!user) return;
+            if (!user || !db) return;
             try {
                 // Check for v9 regional data (New Seed)
                 const checkRef = collection(db, 'artifacts', appId, 'public', 'data', 'regional_data_v9');
@@ -1086,17 +1103,23 @@
         }, 2000);
 
         // 4. Start Auth & Listeners
-        initAuth().then(() => {
-            // Auth initiated
-        });
-        
-        onAuthStateChanged(auth, async (u) => {
-            if (u) {
-                user = u;
-                await seedData();
-                setupListeners();
-            }
-        });
+        if (auth) {
+            initAuth().then(() => {
+                // Auth initiated
+            });
+            
+            onAuthStateChanged(auth, async (u) => {
+                if (u) {
+                    user = u;
+                    await seedData();
+                    setupListeners();
+                }
+            });
+        } else {
+            console.warn("Running in local mode. Firebase config not found.");
+            if (loader) loader.classList.add('hidden');
+            if (dashboard) dashboard.classList.remove('hidden');
+        }
 
     </script>
 </body>
