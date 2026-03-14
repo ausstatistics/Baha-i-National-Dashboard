@@ -97,7 +97,7 @@
  	 storageBucket: "baha-i-national-dashboard.firebasestorage.app",
  	 messagingSenderId: "749050239895",
  	 appId: "1:749050239895:web:28130d0f0658c5fd7c42d2"
-	}; 
+	};  
         
         let firebaseConfig;
         if (typeof __firebase_config !== 'undefined') {
@@ -849,15 +849,11 @@
             // Date Visibility Logic
             const dateDisplay = document.getElementById('header-date');
             if (dateDisplay) {
-                if (tabName === 'Main Dashboard') {
+                if (['Main Dashboard', 'Cycle Data', 'Youth Movement'].includes(tabName)) {
                     dateDisplay.textContent = 'Last updated: 10 March 2026';
                     dateDisplay.classList.remove('hidden');
                 } else if (['Bi-Annual Survey', 'Pioneering'].includes(tabName)) {
                     dateDisplay.textContent = 'Last updated: November 2025';
-                    dateDisplay.classList.remove('hidden');
-                } else if (['Cycle Data', 'Youth Movement'].includes(tabName)) {
-                    const todayStr = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
-                    dateDisplay.textContent = `Last updated: ${todayStr}`;
                     dateDisplay.classList.remove('hidden');
                 } else {
                     dateDisplay.classList.add('hidden');
