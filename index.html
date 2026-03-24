@@ -78,7 +78,7 @@
         </main>
         
         <footer class="mt-12 py-6 border-t border-gray-200 text-center text-xs text-gray-400">
-            <p>Confidential &bull; For internal use only &bull; &copy; 2026 National Spiritual Assembly of the Baháʼís of Australia</p>
+            <p>Confidential &bull; For internal use only &bull; &copy; 2026 National Spiritual Assembly of the Baháʼís of Australia <span id="visitor-count-display" class="font-medium text-sky-600 ml-1"></span></p>
         </footer>
     </div>
 
@@ -86,7 +86,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, getDocs, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, getDocs, setDoc, getDoc, updateDoc, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 1. CONFIG & GLOBAL STATE ---
         // REPLACE 'null' WITH YOUR FIREBASE CONFIG OBJECT IF HOSTING EXTERNALLY
@@ -97,7 +97,7 @@
  	 storageBucket: "baha-i-national-dashboard.firebasestorage.app",
  	 messagingSenderId: "749050239895",
  	 appId: "1:749050239895:web:28130d0f0658c5fd7c42d2"
-	};  
+	};   
         
         let firebaseConfig;
         if (typeof __firebase_config !== 'undefined') {
@@ -991,8 +991,40 @@
             }
         }
 
+        async function trackVisit() {
+            if (!db) return;
+            const visitDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'analytics_stats', 'visits');
+            
+            // Listen to changes to display in footer in real-time
+            onSnapshot(visitDocRef, (snap) => {
+                const el = document.getElementById('visitor-count-display');
+                if (snap.exists() && el) {
+                    el.innerHTML = `&bull; Total Views: <strong>${snap.data().count.toLocaleString()}</strong>`;
+                }
+            });
+
+            // Only increment once per browser session
+            if (!sessionStorage.getItem('dashboard_visited')) {
+                sessionStorage.setItem('dashboard_visited', 'true');
+                try {
+                    const snap = await getDoc(visitDocRef);
+                    if (!snap.exists()) {
+                        await setDoc(visitDocRef, { count: 1 });
+                    } else {
+                        await updateDoc(visitDocRef, { count: increment(1) });
+                    }
+                } catch (e) {
+                    console.error("Error tracking visit:", e);
+                }
+            }
+        }
+
         function setupListeners() {
             if (!user || !db) return;
+            
+            // Start the visitor tracking system
+            trackVisit();
+            
             // Updated regional_data_v10 to force a fresh seed with new image data
             const collections = ['regional_data_v10', 'survey_data', 'cluster_data', 'cycle_data_v3', 'pioneering_data'];
             const mapping = {
