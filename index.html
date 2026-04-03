@@ -26,6 +26,8 @@
     </style>
     <!-- Chart.js for charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf for exporting visual data to PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans antialiased min-h-screen flex flex-col">
 
@@ -52,7 +54,7 @@
         </header>
 
         <!-- Navigation & Controls -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-8 sticky top-4 z-30 backdrop-blur-md bg-white/90">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-4 sticky top-4 z-30 backdrop-blur-md bg-white/90">
             <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                 <!-- Tabs -->
                 <nav id="tabs-container" class="flex overflow-x-auto space-x-1 p-1 w-full md:w-auto custom-scrollbar pb-2 md:pb-0">
@@ -72,13 +74,20 @@
             </div>
         </div>
 
+        <div class="flex justify-end mb-6">
+            <button id="exportPdfBtn" class="flex items-center justify-center space-x-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span>Export PDF</span>
+            </button>
+        </div>
+
         <!-- Dynamic Content Area -->
         <main id="content-container" class="flex-1 space-y-8 animate-fade-in">
             <!-- Content injected by JS -->
         </main>
         
-        <footer class="mt-12 py-6 border-t border-gray-200 text-center text-xs text-gray-400">
-            <p>Confidential &bull; For internal use only &bull; &copy; 2026 National Spiritual Assembly of the Baháʼís of Australia <span id="visitor-count-display" class="font-medium text-sky-600 ml-1"></span></p>
+        <footer class="mt-12 py-6 border-t border-gray-200 flex flex-col items-center justify-center gap-3">
+            <p class="text-center text-xs text-gray-400">Confidential &bull; For internal use only &bull; &copy; 2026 National Spiritual Assembly of the Baháʼís of Australia</p>
         </footer>
     </div>
 
@@ -537,6 +546,57 @@
 
         // --- 3. LOGIC FUNCTIONS (Defined as Functions for Hoisting) ---
 
+        function exportToPDF() {
+            const element = document.getElementById('content-container');
+            const exportBtn = document.getElementById('exportPdfBtn');
+            const originalText = exportBtn.innerHTML;
+
+            // UI Loading state
+            exportBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div><span class="ml-2 text-white">Exporting...</span>`;
+            exportBtn.disabled = true;
+
+            // Temporarily remove scrollbars/max-height so full tables are exported
+            const scrollableElements = element.querySelectorAll('.custom-scrollbar');
+            const originalStyles = [];
+            scrollableElements.forEach((el) => {
+                originalStyles.push({ el: el, maxH: el.style.maxHeight, overflow: el.style.overflow });
+                el.style.maxHeight = 'none';
+                el.style.overflow = 'visible';
+            });
+
+            // html2pdf configuration (A3 landscape for wide dashboards)
+            const opt = {
+                margin:       10,
+                filename:     `Bahai_Dashboard_${currentTab.replace(/\s+/g, '_')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'mm', format: 'a3', orientation: 'landscape' }
+            };
+
+            // Small delay to ensure charts finished rendering animations
+            setTimeout(() => {
+                html2pdf().set(opt).from(element).save().then(() => {
+                    // Restore styles
+                    originalStyles.forEach(item => {
+                        item.el.style.maxHeight = item.maxH;
+                        item.el.style.overflow = item.overflow;
+                    });
+                    exportBtn.innerHTML = originalText;
+                    exportBtn.disabled = false;
+                }).catch(err => {
+                    console.error("PDF Export error:", err);
+                    // Restore styles even on error
+                    originalStyles.forEach(item => {
+                        item.el.style.maxHeight = item.maxH;
+                        item.el.style.overflow = item.overflow;
+                    });
+                    exportBtn.innerHTML = originalText;
+                    exportBtn.disabled = false;
+                    alert("There was an error generating the PDF.");
+                });
+            }, 500);
+        }
+
         function renderTabs() {
             const tabNames = ['Main Dashboard', 'Cycle Data', 'Bi-Annual Survey', 'Cluster Development', 'Pioneering', 'Youth Movement'];
             const container = document.getElementById('tabs-container');
@@ -958,7 +1018,7 @@
                  html = `
                  <div class="space-y-6">
                     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4"><p class="text-sm text-yellow-700"><strong>Note:</strong> The data may be incorrect and needs to be verified.</p></div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 class="font-semibold mb-4">Activity Trends per Cycle (${currentRegionFilter === 'All' ? 'By Region' : 'By Activity'})</h3><div class="h-96"><canvas id="cycleGroupsChart"></canvas></div></div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 class="font-semibold mb-4">Educational Activity Trends per Cycle (${currentRegionFilter === 'All' ? 'By Region' : 'By Activity'})</h3><div class="h-96"><canvas id="cycleGroupsChart"></canvas></div></div>
                     ${createTable((appData.cycle.length > 0 ? appData.cycle : initialData.cycle).filter(d => currentRegionFilter === 'All' || d.Region === currentRegionFilter), `Detailed Cycle Data (${currentRegionFilter})`)}
                  </div>`;
             } else if (tabName === 'Cluster Development') {
@@ -1000,39 +1060,8 @@
             }
         }
 
-        async function trackVisit() {
-            if (!db) return;
-            const visitDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'analytics_stats', 'visits');
-            
-            // Listen to changes to display in footer in real-time
-            onSnapshot(visitDocRef, (snap) => {
-                const el = document.getElementById('visitor-count-display');
-                if (snap.exists() && el) {
-                    el.innerHTML = `&bull; Total Views: <strong>${snap.data().count.toLocaleString()}</strong>`;
-                }
-            });
-
-            // Only increment once per browser session
-            if (!sessionStorage.getItem('dashboard_visited')) {
-                sessionStorage.setItem('dashboard_visited', 'true');
-                try {
-                    const snap = await getDoc(visitDocRef);
-                    if (!snap.exists()) {
-                        await setDoc(visitDocRef, { count: 1 });
-                    } else {
-                        await updateDoc(visitDocRef, { count: increment(1) });
-                    }
-                } catch (e) {
-                    console.error("Error tracking visit:", e);
-                }
-            }
-        }
-
         function setupListeners() {
             if (!user || !db) return;
-            
-            // Start the visitor tracking system
-            trackVisit();
             
             // Updated regional_data_v10 to force a fresh seed with new image data
             const collections = ['regional_data_v10', 'survey_data', 'cluster_data', 'cycle_data_v4', 'pioneering_data'];
@@ -1137,6 +1166,12 @@
             dateDisplay.textContent = `Last updated: 24 March 2026`;
         }
             
+        // Setup PDF Export listener
+        const exportBtn = document.getElementById('exportPdfBtn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', exportToPDF);
+        }
+
         // 2. Initial Render with Empty/Local Data to prevent blank screen
         populateRegionFilter();
         renderContent(currentTab);
