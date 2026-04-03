@@ -742,18 +742,24 @@
                          const regions = [...new Set(filteredCycles.map(d => d.Region))];
                          datasets = regions.map((r, i) => ({
                             label: r,
-                            data: labels.map(c => filteredCycles.filter(d => d.Cycle === c && d.Region === r).reduce((acc, curr) => acc + (curr["Number of Activities"] || curr.No || 0), 0)),
-                            backgroundColor: COLORS[i % COLORS.length]
+                            data: labels.map(c => filteredCycles.filter(d => d.Cycle === c && d.Region === r).reduce((acc, curr) => acc + (Number(curr["Number of Activities"]) || Number(curr.No) || 0), 0)),
+                            borderColor: COLORS[i % COLORS.length],
+                            backgroundColor: COLORS[i % COLORS.length],
+                            tension: 0.3,
+                            fill: false
                         }));
                     } else {
                         const activities = [...new Set(filteredCycles.map(d => d.Activity))];
                         datasets = activities.map((act, i) => ({
                             label: act,
-                            data: labels.map(c => filteredCycles.filter(d => d.Cycle === c && d.Activity === act).reduce((acc, curr) => acc + (curr["Number of Activities"] || curr.No || 0), 0)),
-                            backgroundColor: COLORS[i % COLORS.length]
+                            data: labels.map(c => filteredCycles.filter(d => d.Cycle === c && d.Activity === act).reduce((acc, curr) => acc + (Number(curr["Number of Activities"]) || Number(curr.No) || 0), 0)),
+                            borderColor: COLORS[i % COLORS.length],
+                            backgroundColor: COLORS[i % COLORS.length],
+                            tension: 0.3,
+                            fill: false
                         }));
                     }
-                    chartInstances.cycleGroups = new Chart(ctx, { type: 'bar', data: {labels, datasets}, options: {maintainAspectRatio: false, scales: {x:{stacked:true}, y:{stacked:true}}}});
+                    chartInstances.cycleGroups = new Chart(ctx, { type: 'line', data: {labels, datasets}, options: {maintainAspectRatio: false, plugins: {legend: {position: 'bottom'}}}});
                  }
              }
         }
@@ -901,7 +907,7 @@
                     <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-r mt-4">
                         <p class="text-sm text-red-700"><strong>Note:</strong> The drop in participation in Children's classes is a result of a change in the October 2025 Bi-annual survey where children's festivals were no longer reported as part of the regular Children's Classes and reported separately instead.</p>
                     </div>
-                </div>`; 
+                </div>`;
             } else if (tabName === 'Pioneering') {
                  html = `
                  <div class="space-y-8">
