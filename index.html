@@ -98,21 +98,21 @@
         import { getFirestore, collection, doc, getDocs, setDoc, getDoc, updateDoc, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 1. CONFIG & GLOBAL STATE ---
-        // REPLACE 'null' WITH YOUR FIREBASE CONFIG OBJECT IF HOSTING EXTERNALLY
-        const firebaseConfig = {
-  apiKey: "AIzaSyCuRbKwzeW0li7SCiWrc19JrjlcDR4U2qI",
-  authDomain: "baha-i-national-dashboard.firebaseapp.com",
-  projectId: "baha-i-national-dashboard",
-  storageBucket: "baha-i-national-dashboard.firebasestorage.app",
-  messagingSenderId: "749050239895",
-  appId: "1:749050239895:web:28130d0f0658c5fd7c42d2"
-};
+        // UPDATE THE VALUES BELOW WITH THE EXACT TEXT FROM YOUR FIREBASE CONSOLE SCREENSHOT
+        const MY_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCuRbKwzeW0li7SCiWrc19JrjlcDR4U2qI",
+            authDomain: "baha-i-national-dashboard.firebaseapp.com",
+            projectId: "baha-i-national-dashboard",
+            storageBucket: "baha-i-national-dashboard.firebasestorage.app",
+            messagingSenderId: "749050239895",
+            appId: "1:749050239895:web:28130d0f0658c5fd7c42d2"
+        }; 
         
         let firebaseConfig;
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config); // Runs in the AI Canvas
-        } else if (MY_FIREBASE_CONFIG) {
-            firebaseConfig = MY_FIREBASE_CONFIG; // Runs on GitHub Pages
+        } else if (MY_FIREBASE_CONFIG && MY_FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY") {
+            firebaseConfig = MY_FIREBASE_CONFIG; // Runs on GitHub Pages or local host
         }
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'bahai-dashboard-app';
