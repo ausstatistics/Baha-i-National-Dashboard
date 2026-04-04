@@ -143,10 +143,22 @@
             cluster: [],
             cycle: [],
             pioneeringTrends: [],
-            youthMovement: { total: 0, uniqueEngaged: 0, inStudyCircles: 0, teachingChildrensClasses: 0, animatingJuniorYouth: 0, tutoringStudyCircle: 0, uniqueFacilitators: 0 }
+            youthMovement: { total: 0, uniqueEngaged: 0, inStudyCircles: 0, teachingChildrensClasses: 0, animatingJuniorYouth: 0, tutoringStudyCircle: 0, uniqueFacilitators: 0 },
+            socialAction: { activitiesOfFixedDuration: 0, sustainedProjects: 0, developmentOrganizations: 0, regions: [] }
         };
 
         const initialData = {
+            socialAction: {
+                activitiesOfFixedDuration: 620,
+                sustainedProjects: 126,
+                developmentOrganizations: 6,
+                regions: [
+                    { Region: 'New South Wales and Australian Capital Territory', Fixed: 82, Sustained: 46, DevOrgs: 2 },
+                    { Region: 'North Eastern Australia', Fixed: 63, Sustained: 49, DevOrgs: 3 },
+                    { Region: 'Victoria and Tasmania', Fixed: 75, Sustained: 7, DevOrgs: 0 },
+                    { Region: 'Western and Central Australia', Fixed: 400, Sustained: 24, DevOrgs: 1 }
+                ]
+            },
             regional: [
                 { Region: 'New South Wales and Australian Capital Territory', Category: 'Devotional Meetings', 'Number of Activities': 965, 'Total Participants': 5841, 'Friends of the Faith': 1661 },
                 { Region: 'New South Wales and Australian Capital Territory', Category: "Children's Classes", 'Number of Activities': 110, 'Total Participants': 2583, 'Friends of the Faith': 1921 },
@@ -598,7 +610,7 @@
         }
 
         function renderTabs() {
-            const tabNames = ['Main Dashboard', 'Cycle Data', 'Bi-Annual Survey', 'Cluster Development', 'Pioneering', 'Youth Movement'];
+            const tabNames = ['Main Dashboard', 'Cycle Data', 'Bi-Annual Survey', 'Cluster Development', 'Social Action', 'Pioneering', 'Youth Movement'];
             const container = document.getElementById('tabs-container');
             if (container) {
                 container.innerHTML = tabNames.map(name => {
@@ -749,6 +761,22 @@
                     }));
                     chartInstances[id] = new Chart(ctx, { type: 'line', data: { labels, datasets }, options: { maintainAspectRatio: false, plugins: {legend: {position: 'bottom'}}} });
                 });
+             } else if (currentTab === 'Social Action') {
+                const saData = appData.socialAction.regions && appData.socialAction.regions.length > 0 ? appData.socialAction : initialData.socialAction;
+                const ctx = document.getElementById('socialActionBarChart');
+                if (ctx && saData.regions) {
+                    const labels = saData.regions.map(r => r.Region);
+                    const datasets = [
+                        { label: 'Activities of Fixed Duration', data: saData.regions.map(r => r.Fixed), backgroundColor: '#3b82f6' },
+                        { label: 'Sustained Projects', data: saData.regions.map(r => r.Sustained), backgroundColor: '#10b981' },
+                        { label: 'Development Organizations', data: saData.regions.map(r => r.DevOrgs), backgroundColor: '#8b5cf6' }
+                    ];
+                    chartInstances.socialAction = new Chart(ctx, {
+                        type: 'bar',
+                        data: { labels, datasets },
+                        options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                    });
+                }
              } else if (currentTab === 'Pioneering') {
                 const trendsData = appData.pioneeringTrends.length > 0 ? appData.pioneeringTrends : initialData.pioneeringTrends;
                 
@@ -908,6 +936,68 @@
             `;
         }
 
+        function renderSocialActionPage() {
+            const saData = appData.socialAction.activitiesOfFixedDuration > 0 ? appData.socialAction : initialData.socialAction;
+            
+            const tableData = (saData.regions || []).map(r => ({
+                'Region': r.Region,
+                'Activities of Fixed Duration': r.Fixed,
+                'Sustained Projects': r.Sustained,
+                'Development Organizations': r.DevOrgs
+            }));
+
+            return `
+                <div class="space-y-6">
+                    ${createLastUpdatedBanner()}
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Social Action: National & Regional Overview</h2>
+                    
+                    <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        ${createStatCard('Activities of Fixed Duration', saData.activitiesOfFixedDuration.toLocaleString(), 'bg-blue-100 text-blue-600', '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>')}
+                        ${createStatCard('Sustained Projects', saData.sustainedProjects.toLocaleString(), 'bg-green-100 text-green-600', '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>')}
+                        ${createStatCard('Development Organizations', saData.developmentOrganizations.toLocaleString(), 'bg-purple-100 text-purple-600', '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>')}
+                    </section>
+                    
+                    <div class="grid grid-cols-1 gap-8">
+                        <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 class="font-semibold text-lg mb-6 text-gray-800">Regional Distribution</h3>
+                            <div class="h-96"><canvas id="socialActionBarChart"></canvas></div>
+                        </section>
+                        
+                        ${createTable(tableData, 'Detailed Regional Breakdown')}
+                    </div>
+
+                    <!-- Definitions Section -->
+                    <section class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-8">
+                        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                            <h3 class="font-semibold text-gray-800">Category Descriptions</h3>
+                        </div>
+                        <div class="p-6 space-y-6">
+                            <div>
+                                <h4 class="font-semibold text-md text-sky-700 mb-2">Activities of Fixed Duration</h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">
+                                    Most Bahá’í initiatives in the area of social action are fairly simple activities of fixed duration, carried out over a short period of time. These arise out of natural stirrings at the grassroots and provide Bahá’ís around the world a means to address, through the application of spiritual principles, specific problems and challenges faced by their localities. They often result from junior youth groups or other groups of believers who are concerned with the betterment of their community. Among such activities are informal tutorial classes for children or youth, workshops and seminars, short-term training courses, tree-planting and clean-up projects, planting gardens or common plots, health camps, and efforts to discuss or raise consciousness about such topics as the equality of men and women, education of children, parenting, and health.
+                                </p>
+                            </div>
+                            <hr class="border-gray-100" />
+                            <div>
+                                <h4 class="font-semibold text-md text-emerald-700 mb-2">Sustained Projects and Initiatives</h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">
+                                    A second category of Bahá’í social action endeavours consists of projects and community-based initiatives that are sustained over time and which may have a basic administrative structure. A significant number of these arise out of the endeavours of groups of youth who have been engaged in the process of community building over a number of years and recognize the need for long-term sustained action to assist in the improvement of the communities they are serving. Generally, these projects operate in a village or neighbourhood, but may also emerge at the cluster level. A growing number of sustained projects and community-based initiatives have the capacity to maintain a basic structure and manage some resources. Among the numerous types of activities that would fall into this category are the regular holding of supplementary classes for children or youth, tutorial schools, cooperatives, community banks, radio stations, health clinics, literacy programmes, women’s associations, and environmental conservation projects.
+                                </p>
+                            </div>
+                            <hr class="border-gray-100" />
+                            <div>
+                                <h4 class="font-semibold text-md text-purple-700 mb-2">Development Organizations</h4>
+                                <p class="text-sm text-gray-600 leading-relaxed">
+                                    A third category of Bahá’í social action endeavours consists of development organizations. Overseeing one or more sophisticated development programmes, these organizations generally have complex administrative structures and may extend their efforts or influence across several clusters, a region, or an entire country. A majority of these are Bahá’í-inspired organizations that operate autonomously while others function directly under the aegis of the institutions of the Faith. Some examples include organizations that develop content or oversee educational efforts aimed at raising capacity of specific populations and offer programmes such as those for the training of teachers, vocational training, and health education. This category also includes large academic schools with complex programmatic and organizational arrangements, universities and other tertiary education institutions, as well as organizations carrying out lines of action such as agriculture and environmental research or participating in one or another discourse of society.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            `;
+        }
+
         function renderContent(tabName) {
             currentTab = tabName;
             renderTabs();
@@ -923,6 +1013,9 @@
                     dateDisplay.classList.remove('hidden');
                 } else if (tabName === 'Youth Movement') {
                     dateDisplay.textContent = 'Last updated: 10 March 2026';
+                    dateDisplay.classList.remove('hidden');
+                } else if (tabName === 'Social Action') {
+                    dateDisplay.textContent = 'Last updated: April 2025';
                     dateDisplay.classList.remove('hidden');
                 } else if (['Bi-Annual Survey', 'Pioneering'].includes(tabName)) {
                     dateDisplay.textContent = 'Last updated: November 2025';
@@ -943,6 +1036,7 @@
             let html = '';
             if (tabName === 'Main Dashboard') html = renderMainDashboard();
             else if (tabName === 'Youth Movement') html = renderYouthMovementPage();
+            else if (tabName === 'Social Action') html = renderSocialActionPage();
             else if (tabName === 'Bi-Annual Survey') {
                 const surveyData = appData.survey.length > 0 ? appData.survey : initialData.survey;
                 
@@ -1090,6 +1184,13 @@
                     refreshUIIfActive('Youth Movement');
                 }
             });
+            
+            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v2', 'summary'), (snap) => {
+                if (snap.exists()) {
+                    appData.socialAction = snap.data();
+                    refreshUIIfActive('Social Action');
+                }
+            });
         }
         
         async function initAuth() {
@@ -1143,6 +1244,9 @@
                     
                     if (initialData.youthMovement) {
                         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'youth_data', 'summary'), initialData.youthMovement);
+                    }
+                    if (initialData.socialAction) {
+                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v2', 'summary'), initialData.socialAction);
                     }
                     console.log("Seeded.");
                 } else if (cycleSnapshot.empty) {
