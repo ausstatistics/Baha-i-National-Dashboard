@@ -1217,6 +1217,9 @@
                 
                 const cycleCheckRef = collection(db, 'artifacts', appId, 'public', 'data', 'cycle_data_v4');
                 const cycleSnapshot = await getDocs(cycleCheckRef);
+                
+                const saCheckRef = collection(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v2');
+                const saSnapshot = await getDocs(saCheckRef);
 
                 const upload = async (c, d) => { 
                     if (!d || !Array.isArray(d)) {
@@ -1227,32 +1230,34 @@
                     for(const i of d) await setDoc(doc(ref), i);
                 };
 
+                // Seed data if collections are empty
                 if (snapshot.empty) {
                     console.log("Seeding v10 data...");
                     await upload('regional_data_v10', initialData.regional);
-                    
-                    const surveyRef = collection(db, 'artifacts', appId, 'public', 'data', 'survey_data');
-                    if((await getDocs(surveyRef)).empty) await upload('survey_data', initialData.survey);
-                    
-                    const clusterRef = collection(db, 'artifacts', appId, 'public', 'data', 'cluster_data');
-                    if((await getDocs(clusterRef)).empty) await upload('cluster_data', initialData.cluster);
-                    
-                    if(cycleSnapshot.empty) await upload('cycle_data_v4', initialData.cycle);
-
-                    const pioneerRef = collection(db, 'artifacts', appId, 'public', 'data', 'pioneering_data');
-                    if((await getDocs(pioneerRef)).empty) await upload('pioneering_data', initialData.pioneeringTrends);
-                    
-                    if (initialData.youthMovement) {
-                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'youth_data', 'summary'), initialData.youthMovement);
-                    }
-                    if (initialData.socialAction) {
-                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v2', 'summary'), initialData.socialAction);
-                    }
-                    console.log("Seeded.");
-                } else if (cycleSnapshot.empty) {
-                     await upload('cycle_data_v4', initialData.cycle);
                 }
-            } catch (e) { console.error(e); }
+                
+                const surveyRef = collection(db, 'artifacts', appId, 'public', 'data', 'survey_data');
+                if((await getDocs(surveyRef)).empty) await upload('survey_data', initialData.survey);
+                
+                const clusterRef = collection(db, 'artifacts', appId, 'public', 'data', 'cluster_data');
+                if((await getDocs(clusterRef)).empty) await upload('cluster_data', initialData.cluster);
+                
+                if(cycleSnapshot.empty) await upload('cycle_data_v4', initialData.cycle);
+
+                const pioneerRef = collection(db, 'artifacts', appId, 'public', 'data', 'pioneering_data');
+                if((await getDocs(pioneerRef)).empty) await upload('pioneering_data', initialData.pioneeringTrends);
+                
+                if (initialData.youthMovement) {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'youth_data', 'summary'), initialData.youthMovement);
+                }
+                
+                if (saSnapshot.empty && initialData.socialAction) {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v2', 'summary'), initialData.socialAction);
+                }
+
+                console.log("Data seeding check complete.");
+                
+            } catch (e) { console.error("Error during data seeding:", e); }
         }
 
         // --- 4. STARTUP SEQUENCE ---
