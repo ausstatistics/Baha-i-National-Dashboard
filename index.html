@@ -98,7 +98,6 @@
         import { getFirestore, collection, doc, getDocs, setDoc, getDoc, updateDoc, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 1. CONFIG & GLOBAL STATE ---
-        // UPDATE THE VALUES BELOW WITH THE EXACT TEXT FROM YOUR FIREBASE CONSOLE SCREENSHOT
         const MY_FIREBASE_CONFIG = {
             apiKey: "AIzaSyCuRbKwzeW0li7SCiWrc19JrjlcDR4U2qI",
             authDomain: "baha-i-national-dashboard.firebaseapp.com",
@@ -110,9 +109,9 @@
         
         let firebaseConfig;
         if (typeof __firebase_config !== 'undefined') {
-            firebaseConfig = JSON.parse(__firebase_config); // Runs in the AI Canvas
+            firebaseConfig = JSON.parse(__firebase_config); 
         } else if (MY_FIREBASE_CONFIG && MY_FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY") {
-            firebaseConfig = MY_FIREBASE_CONFIG; // Runs on GitHub Pages or local host
+            firebaseConfig = MY_FIREBASE_CONFIG;
         }
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'bahai-dashboard-app';
@@ -128,7 +127,6 @@
             }
         }
 
-        // DOM Elements (assigned in init sequence at bottom)
         let contentContainer, regionSelect, regionFilterContainer, loader, dashboard;
         
         let chartInstances = {};
@@ -149,14 +147,14 @@
 
         const initialData = {
             socialAction: {
-                activitiesOfFixedDuration: 620,
-                sustainedProjects: 126,
-                developmentOrganizations: 6,
+                activitiesOfFixedDuration: 1051,
+                sustainedProjects: 138,
+                developmentOrganizations: 7,
                 regions: [
-                    { Region: 'New South Wales and Australian Capital Territory', Fixed: 82, Sustained: 46, DevOrgs: 2 },
-                    { Region: 'North Eastern Australia', Fixed: 63, Sustained: 49, DevOrgs: 3 },
-                    { Region: 'Victoria and Tasmania', Fixed: 75, Sustained: 7, DevOrgs: 0 },
-                    { Region: 'Western and Central Australia', Fixed: 400, Sustained: 24, DevOrgs: 1 }
+                    { Region: 'New South Wales and Australian Capital Territory', Fixed2025: 82, Fixed2026: 106, Sustained2025: 46, Sustained2026: 67, DevOrgs2025: 2, DevOrgs2026: 2 },
+                    { Region: 'North Eastern Australia', Fixed2025: 63, Fixed2026: 648, Sustained2025: 49, Sustained2026: 32, DevOrgs2025: 3, DevOrgs2026: 4 },
+                    { Region: 'Victoria and Tasmania', Fixed2025: 75, Fixed2026: 51, Sustained2025: 7, Sustained2026: 14, DevOrgs2025: 0, DevOrgs2026: 0 },
+                    { Region: 'Western and Central Australia', Fixed2025: 400, Fixed2026: 246, Sustained2025: 24, Sustained2026: 25, DevOrgs2025: 1, DevOrgs2026: 1 }
                 ]
             },
             regional: [
@@ -178,10 +176,10 @@
                 { Region: 'Western and Central Australia', Category: 'Study Circles', 'Number of Activities': 146, 'Total Participants': 617, 'Friends of the Faith': 170 }
             ],
             survey: [
-                { "Date": "Oct-19", "Activity": "Study Circles", "Groups": 716, "Participants": 2845, "FoF": 908 }, { "Date": "Apr-20", "Activity": "Study Circles", "Groups": 701, "Participants": 2743, "FoF": 916 }, { "Date": "Oct-20", "Activity": "Study Circles", "Groups": 896, "Participants": 3749, "FoF": 968 }, { "Date": "Apr-21", "Activity": "Study Circles", "Groups": 897, "Participants": 3726, "FoF": 931 }, { "Date": "Oct-21", "Activity": "Study Circles", "Groups": 959, "Participants": 4240, "FoF": 998 }, { "Date": "Apr-22", "Activity": "Study Circles", "Groups": 850, "Participants": 3657, "FoF": 820 }, { "Date": "Oct-22", "Activity": "Study Circles", "Groups": 840, "Participants": 3658, "FoF": 848 }, { "Date": "Apr-23", "Activity": "Study Circles", "Groups": 701, "Participants": 2872, "FoF": 742 }, { "Date": "Oct-23", "Activity": "Study Circles", "Groups": 653, "Participants": 2575, "FoF": 637 }, { "Date": "Apr-24", "Activity": "Study Circles", "Groups": 614, "Participants": 2572, "FoF": 672 }, { "Date": "Oct-24", "Activity": "Study Circles", "Groups": 631, "Participants": 2794, "FoF": 770 }, { "Date": "Apr-25", "Activity": "Study Circles", "Groups": 579, "Participants": 2552, "FoF": 655 }, { "Date": "Oct-25", "Activity": "Study Circles", "Groups": 559, "Participants": 2505, "FoF": 688 }, { "Date": "Apr-26", "Activity": "Study Circles", "Groups": 491, "Participants": 2219, "FoF": 680 },
-                { "Date": "Oct-19", "Activity": "Devotional Meetings", "Groups": 2130, "Participants": 12989, "FoF": 4112 }, { "Date": "Apr-20", "Activity": "Devotional Meetings", "Groups": 2152, "Participants": 12104, "FoF": 4069 }, { "Date": "Oct-20", "Activity": "Devotional Meetings", "Groups": 2437, "Participants": 14053, "FoF": 4025 }, { "Date": "Apr-21", "Activity": "Devotional Meetings", "Groups": 2590, "Participants": 14039, "FoF": 4551 }, { "Date": "Oct-21", "Activity": "Devotional Meetings", "Groups": 2504, "Participants": 13596, "FoF": 4526 }, { "Date": "Apr-22", "Activity": "Devotional Meetings", "Groups": 2420, "Participants": 12749, "FoF": 4388 }, { "Date": "Oct-22", "Activity": "Devotional Meetings", "Groups": 2551, "Participants": 13875, "FoF": 4750 }, { "Date": "Apr-23", "Activity": "Devotional Meetings", "Groups": 2137, "Participants": 13497, "FoF": 4447 }, { "Date": "Oct-23", "Activity": "Devotional Meetings", "Groups": 2022, "Participants": 12213, "FoF": 3652 }, { "Date": "Apr-24", "Activity": "Devotional Meetings", "Groups": 2144, "Participants": 12948, "FoF": 3467 }, { "Date": "Oct-24", "Activity": "Devotional Meetings", "Groups": 1964, "Participants": 12101, "FoF": 3196 }, { "Date": "Apr-25", "Activity": "Devotional Meetings", "Groups": 1974, "Participants": 11804, "FoF": 3239 }, { "Date": "Oct-25", "Activity": "Devotional Meetings", "Groups": 1968, "Participants": 11544, "FoF": 3311 }, { "Date": "Apr-26", "Activity": "Devotional Meetings", "Groups": 1932, "Participants": 11298, "FoF": 3504 },
-                { "Date": "Oct-19", "Activity": "Children's Classes", "Groups": 571, "Participants": 3598, "FoF": 2656 }, { "Date": "Apr-20", "Activity": "Children's Classes", "Groups": 609, "Participants": 3812, "FoF": 2785 }, { "Date": "Oct-20", "Activity": "Children's Classes", "Groups": 567, "Participants": 3430, "FoF": 2509 }, { "Date": "Apr-21", "Activity": "Children's Classes", "Groups": 579, "Participants": 3505, "FoF": 2565 }, { "Date": "Oct-21", "Activity": "Children's Classes", "Groups": 510, "Participants": 3613, "FoF": 2513 }, { "Date": "Apr-22", "Activity": "Children's Classes", "Groups": 503, "Participants": 3645, "FoF": 2554 }, { "Date": "Oct-22", "Activity": "Children's Classes", "Groups": 467, "Participants": 3169, "FoF": 2391 }, { "Date": "Apr-23", "Activity": "Children's Classes", "Groups": 502, "Participants": 4277, "FoF": 2945 }, { "Date": "Oct-23", "Activity": "Children's Classes", "Groups": 465, "Participants": 3525, "FoF": 2392 }, { "Date": "Apr-24", "Activity": "Children's Classes", "Groups": 418, "Participants": 2758, "FoF": 2002 }, { "Date": "Oct-24", "Activity": "Children's Classes", "Groups": 450, "Participants": 4747, "FoF": 3511 }, { "Date": "Apr-25", "Activity": "Children's Classes", "Groups": 412, "Participants": 4471, "FoF": 3289 }, { "Date": "Oct-25", "Activity": "Children's Classes", "Groups": 392, "Participants": 2317, "FoF": 1509 }, { "Date": "Apr-26", "Activity": "Children's Classes", "Groups": 398, "Participants": 4413, "FoF": 3236 },
-                { "Date": "Oct-19", "Activity": "Junior Youth Groups", "Groups": 227, "Participants": 1346, "FoF": 976 }, { "Date": "Apr-20", "Activity": "Junior Youth Groups", "Groups": 242, "Participants": 1468, "FoF": 1083 }, { "Date": "Oct-20", "Activity": "Junior Youth Groups", "Groups": 212, "Participants": 1285, "FoF": 913 }, { "Date": "Apr-21", "Activity": "Junior Youth Groups", "Groups": 223, "Participants": 1384, "FoF": 995 }, { "Date": "Oct-21", "Activity": "Junior Youth Groups", "Groups": 209, "Participants": 1309, "FoF": 961 }, { "Date": "Apr-22", "Activity": "Junior Youth Groups", "Groups": 220, "Participants": 1336, "FoF": 980 }, { "Date": "Oct-22", "Activity": "Junior Youth Groups", "Groups": 194, "Participants": 1248, "FoF": 924 }, { "Date": "Apr-23", "Activity": "Junior Youth Groups", "Groups": 179, "Participants": 1155, "FoF": 773 }, { "Date": "Oct-23", "Activity": "Junior Youth Groups", "Groups": 196, "Participants": 1229, "FoF": 766 }, { "Date": "Apr-24", "Activity": "Junior Youth Groups", "Groups": 193, "Participants": 1139, "FoF": 806 }, { "Date": "Oct-24", "Activity": "Junior Youth Groups", "Groups": 193, "Participants": 1154, "FoF": 871 }, { "Date": "Apr-25", "Activity": "Junior Youth Groups", "Groups": 180, "Participants": 1027, "FoF": 731 }, { "Date": "Oct-25", "Activity": "Junior Youth Groups", "Groups": 175, "Participants": 992, "FoF": 703 }, { "Date": "Apr-26", "Activity": "Junior Youth Groups", "Groups": 195, "Participants": 1062, "FoF": 730 }
+                { "Date": "Oct-19", "Activity": "Study Circles", "Groups": 716, "Participants": 2845, "FoF": 908 }, { "Date": "Apr-20", "Activity": "Study Circles", "Groups": 701, "Participants": 2743, "FoF": 916 }, { "Date": "Oct-20", "Activity": "Study Circles", "Groups": 896, "Participants": 3749, "FoF": 968 }, { "Date": "Apr-21", "Activity": "Study Circles", "Groups": 897, "Participants": 3726, "FoF": 931 }, { "Date": "Oct-21", "Activity": "Study Circles", "Groups": 959, "Participants": 4240, "FoF": 998 }, { "Date": "Apr-22", "Activity": "Study Circles", "Groups": 850, "Participants": 3657, "FoF": 820 }, { "Date": "Oct-22", "Activity": "Study Circles", "Groups": 840, "Participants": 3658, "FoF": 848 }, { "Date": "Apr-23", "Activity": "Study Circles", "Groups": 701, "Participants": 2872, "FoF": 742 }, { "Date": "Oct-23", "Activity": "Study Circles", "Groups": 653, "Participants": 2575, "FoF": 637 }, { "Date": "Apr-24", "Activity": "Study Circles", "Groups": 614, "Participants": 2572, "FoF": 672 }, { "Date": "Oct-24", "Activity": "Study Circles", "Groups": 631, "Participants": 2794, "FoF": 770 }, { "Date": "Apr-25", "Activity": "Study Circles", "Groups": 579, "Participants": 2552, "FoF": 655 }, { "Date": "Oct-25", "Activity": "Study Circles", "Groups": 559, "Participants": 2505, "FoF": 688 },
+                { "Date": "Oct-19", "Activity": "Devotional Meetings", "Groups": 2130, "Participants": 12989, "FoF": 4112 }, { "Date": "Apr-20", "Activity": "Devotional Meetings", "Groups": 2152, "Participants": 12104, "FoF": 4069 }, { "Date": "Oct-20", "Activity": "Devotional Meetings", "Groups": 2437, "Participants": 14053, "FoF": 4025 }, { "Date": "Apr-21", "Activity": "Devotional Meetings", "Groups": 2590, "Participants": 14039, "FoF": 4551 }, { "Date": "Oct-21", "Activity": "Devotional Meetings", "Groups": 2504, "Participants": 13596, "FoF": 4526 }, { "Date": "Apr-22", "Activity": "Devotional Meetings", "Groups": 2420, "Participants": 12749, "FoF": 4388 }, { "Date": "Oct-22", "Activity": "Devotional Meetings", "Groups": 2551, "Participants": 13875, "FoF": 4750 }, { "Date": "Apr-23", "Activity": "Devotional Meetings", "Groups": 2137, "Participants": 13497, "FoF": 4447 }, { "Date": "Oct-23", "Activity": "Devotional Meetings", "Groups": 2022, "Participants": 12213, "FoF": 3652 }, { "Date": "Apr-24", "Activity": "Devotional Meetings", "Groups": 2144, "Participants": 12948, "FoF": 3467 }, { "Date": "Oct-24", "Activity": "Devotional Meetings", "Groups": 1964, "Participants": 12101, "FoF": 3196 }, { "Date": "Apr-25", "Activity": "Devotional Meetings", "Groups": 1974, "Participants": 11804, "FoF": 3239 }, { "Date": "Oct-25", "Activity": "Devotional Meetings", "Groups": 1968, "Participants": 11544, "FoF": 3311 },
+                { "Date": "Oct-19", "Activity": "Children's Classes", "Groups": 571, "Participants": 3598, "FoF": 2656 }, { "Date": "Apr-20", "Activity": "Children's Classes", "Groups": 609, "Participants": 3812, "FoF": 2785 }, { "Date": "Oct-20", "Activity": "Children's Classes", "Groups": 567, "Participants": 3430, "FoF": 2509 }, { "Date": "Apr-21", "Activity": "Children's Classes", "Groups": 579, "Participants": 3505, "FoF": 2565 }, { "Date": "Oct-21", "Activity": "Children's Classes", "Groups": 510, "Participants": 3613, "FoF": 2513 }, { "Date": "Apr-22", "Activity": "Children's Classes", "Groups": 503, "Participants": 3645, "FoF": 2554 }, { "Date": "Oct-22", "Activity": "Children's Classes", "Groups": 467, "Participants": 3169, "FoF": 2391 }, { "Date": "Apr-23", "Activity": "Children's Classes", "Groups": 502, "Participants": 4277, "FoF": 2945 }, { "Date": "Oct-23", "Activity": "Children's Classes", "Groups": 465, "Participants": 3525, "FoF": 2392 }, { "Date": "Apr-24", "Activity": "Children's Classes", "Groups": 418, "Participants": 2758, "FoF": 2002 }, { "Date": "Oct-24", "Activity": "Children's Classes", "Groups": 450, "Participants": 4747, "FoF": 3511 }, { "Date": "Apr-25", "Activity": "Children's Classes", "Groups": 412, "Participants": 4471, "FoF": 3289 }, { "Date": "Oct-25", "Activity": "Children's Classes", "Groups": 392, "Participants": 2317, "FoF": 1509 },
+                { "Date": "Oct-19", "Activity": "Junior Youth Groups", "Groups": 227, "Participants": 1346, "FoF": 976 }, { "Date": "Apr-20", "Activity": "Junior Youth Groups", "Groups": 242, "Participants": 1468, "FoF": 1083 }, { "Date": "Oct-20", "Activity": "Junior Youth Groups", "Groups": 212, "Participants": 1285, "FoF": 913 }, { "Date": "Apr-21", "Activity": "Junior Youth Groups", "Groups": 223, "Participants": 1384, "FoF": 995 }, { "Date": "Oct-21", "Activity": "Junior Youth Groups", "Groups": 209, "Participants": 1309, "FoF": 961 }, { "Date": "Apr-22", "Activity": "Junior Youth Groups", "Groups": 220, "Participants": 1336, "FoF": 980 }, { "Date": "Oct-22", "Activity": "Junior Youth Groups", "Groups": 194, "Participants": 1248, "FoF": 924 }, { "Date": "Apr-23", "Activity": "Junior Youth Groups", "Groups": 179, "Participants": 1155, "FoF": 773 }, { "Date": "Oct-23", "Activity": "Junior Youth Groups", "Groups": 196, "Participants": 1229, "FoF": 766 }, { "Date": "Apr-24", "Activity": "Junior Youth Groups", "Groups": 193, "Participants": 1139, "FoF": 806 }, { "Date": "Oct-24", "Activity": "Junior Youth Groups", "Groups": 193, "Participants": 1154, "FoF": 871 }, { "Date": "Apr-25", "Activity": "Junior Youth Groups", "Groups": 180, "Participants": 1027, "FoF": 731 }, { "Date": "Oct-25", "Activity": "Junior Youth Groups", "Groups": 175, "Participants": 992, "FoF": 703 }
             ],
             cluster: [
                 { Region: "New South Wales & Australian Capital Territory", Cluster: "Wentworth", R22A: "IPG+", R23F: "IPG+", R23A: "IPG+", R24F: "IPG+", R24A: "IPG", R25F: "IPG+", R26F: "IPG+"},
@@ -673,7 +671,11 @@
         }
 
         function renderCharts() {
-            Object.values(chartInstances).forEach(chart => chart.destroy());
+            Object.values(chartInstances).forEach(chart => {
+                if(chart) chart.destroy();
+            });
+            chartInstances = {}; // Fix for Canvas ownerDocument null error
+
             const COLORS = ['#0284c7', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777']; 
 
             if (currentTab === 'Main Dashboard') {
@@ -763,24 +765,62 @@
                 });
              } else if (currentTab === 'Social Action') {
                 const saData = appData.socialAction.regions && appData.socialAction.regions.length > 0 ? appData.socialAction : initialData.socialAction;
-                const ctx = document.getElementById('socialActionBarChart');
-                if (ctx && saData.regions) {
-                    const labels = saData.regions.map(r => r.Region);
-                    const datasets = [
-                        { label: 'Activities of Fixed Duration', data: saData.regions.map(r => r.Fixed), backgroundColor: '#3b82f6' },
-                        { label: 'Sustained Projects', data: saData.regions.map(r => r.Sustained), backgroundColor: '#10b981' },
-                        { label: 'Development Organizations', data: saData.regions.map(r => r.DevOrgs), backgroundColor: '#8b5cf6' }
-                    ];
-                    chartInstances.socialAction = new Chart(ctx, {
-                        type: 'bar',
-                        data: { labels, datasets },
-                        options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-                    });
+                const ctx = document.getElementById('socialActionLineChart');
+                const filterSelect = document.getElementById('saChartFilter');
+
+                if (ctx && saData.regions && filterSelect) {
+                    const updateChart = () => {
+                        const selectedRegion = filterSelect.value;
+                        let data2025 = { fixed: 0, sustained: 0, devOrgs: 0 };
+                        let data2026 = { fixed: 0, sustained: 0, devOrgs: 0 };
+
+                        if (selectedRegion === 'All') {
+                            saData.regions.forEach(r => {
+                                data2025.fixed += (r.Fixed2025 || r.Fixed || 0);
+                                data2026.fixed += (r.Fixed2026 || r.Fixed || 0);
+                                data2025.sustained += (r.Sustained2025 || r.Sustained || 0);
+                                data2026.sustained += (r.Sustained2026 || r.Sustained || 0);
+                                data2025.devOrgs += (r.DevOrgs2025 || r.DevOrgs || 0);
+                                data2026.devOrgs += (r.DevOrgs2026 || r.DevOrgs || 0);
+                            });
+                        } else {
+                            const r = saData.regions.find(r => r.Region === selectedRegion);
+                            if (r) {
+                                data2025.fixed = (r.Fixed2025 || r.Fixed || 0);
+                                data2026.fixed = (r.Fixed2026 || r.Fixed || 0);
+                                data2025.sustained = (r.Sustained2025 || r.Sustained || 0);
+                                data2026.sustained = (r.Sustained2026 || r.Sustained || 0);
+                                data2025.devOrgs = (r.DevOrgs2025 || r.DevOrgs || 0);
+                                data2026.devOrgs = (r.DevOrgs2026 || r.DevOrgs || 0);
+                            }
+                        }
+
+                        const labels = ['2025', '2026'];
+                        const datasets = [
+                            { label: 'Activities of Fixed Duration', data: [data2025.fixed, data2026.fixed], borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.1, fill: false, pointRadius: 5 },
+                            { label: 'Sustained Projects', data: [data2025.sustained, data2026.sustained], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.1, fill: false, pointRadius: 5 },
+                            { label: 'Dev. Organizations', data: [data2025.devOrgs, data2026.devOrgs], borderColor: '#8b5cf6', backgroundColor: '#8b5cf6', tension: 0.1, fill: false, pointRadius: 5 }
+                        ];
+
+                        if (chartInstances.socialAction) {
+                            chartInstances.socialAction.data.datasets = datasets;
+                            chartInstances.socialAction.update();
+                        } else {
+                            chartInstances.socialAction = new Chart(ctx, {
+                                type: 'line',
+                                data: { labels, datasets },
+                                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
+                            });
+                        }
+                    };
+
+                    updateChart();
+                    filterSelect.addEventListener('change', updateChart);
                 }
              } else if (currentTab === 'Pioneering') {
                 const trendsData = appData.pioneeringTrends.length > 0 ? appData.pioneeringTrends : initialData.pioneeringTrends;
                 
-                // FIXED: Sort labels chronologically to prevent jumbled data
+                // Sort labels chronologically to prevent jumbled data
                 // Logic: Sort by Year first. If years equal, "Nov-Apr" (0) comes before "May-Oct" (1)
                 const labels = [...new Set(trendsData.map(d => d.Date))].sort((a, b) => {
                     const [rangeA, yearA] = a.split(' ');
@@ -939,31 +979,85 @@
         function renderSocialActionPage() {
             const saData = appData.socialAction.activitiesOfFixedDuration > 0 ? appData.socialAction : initialData.socialAction;
             
-            const tableData = (saData.regions || []).map(r => ({
-                'Region': r.Region,
-                'Activities of Fixed Duration': r.Fixed,
-                'Sustained Projects': r.Sustained,
-                'Development Organizations': r.DevOrgs
-            }));
+            const regionOptions = (saData.regions || []).map(r => `<option value="${r.Region}">${r.Region}</option>`).join('');
+
+            const customTableHtml = `
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+                    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                        <h3 class="text-lg font-semibold text-gray-800">Detailed Regional Breakdown</h3>
+                    </div>
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50 text-gray-600">
+                                <tr>
+                                    <th rowspan="2" class="px-6 py-3 text-left font-semibold uppercase tracking-wider border-b border-r border-gray-200 bg-gray-100 align-bottom">Region</th>
+                                    <th colspan="2" class="px-4 py-2 text-center font-bold uppercase tracking-wider border-b border-r border-gray-200 bg-blue-50 text-blue-800">Activities of Fixed Duration</th>
+                                    <th colspan="2" class="px-4 py-2 text-center font-bold uppercase tracking-wider border-b border-r border-gray-200 bg-green-50 text-green-800">Sustained Projects</th>
+                                    <th colspan="2" class="px-4 py-2 text-center font-bold uppercase tracking-wider border-b border-gray-200 bg-purple-50 text-purple-800">Development Orgs</th>
+                                </tr>
+                                <tr>
+                                    <th class="px-4 py-2 text-center font-semibold text-gray-500 border-b border-r border-gray-200 bg-white">2025</th>
+                                    <th class="px-4 py-2 text-center font-semibold text-gray-500 border-b border-r border-gray-200 bg-blue-50/30">2026</th>
+                                    <th class="px-4 py-2 text-center font-semibold text-gray-500 border-b border-r border-gray-200 bg-white">2025</th>
+                                    <th class="px-4 py-2 text-center font-semibold text-gray-500 border-b border-r border-gray-200 bg-green-50/30">2026</th>
+                                    <th class="px-4 py-2 text-center font-semibold text-gray-500 border-b border-r border-gray-200 bg-white">2025</th>
+                                    <th class="px-4 py-2 text-center font-semibold text-gray-500 border-b border-gray-200 bg-purple-50/30">2026</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-100">
+                                ${(saData.regions || []).map(r => `
+                                    <tr class="hover:bg-sky-50 transition-colors duration-150">
+                                        <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800 border-r border-gray-100 bg-white sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">${r.Region}</td>
+                                        <td class="px-4 py-3 text-center text-gray-600 border-r border-gray-100">${(r.Fixed2025 || r.Fixed || 0).toLocaleString()}</td>
+                                        <td class="px-4 py-3 text-center font-bold text-blue-700 border-r border-gray-200 bg-blue-50/30">${(r.Fixed2026 || r.Fixed || 0).toLocaleString()}</td>
+                                        <td class="px-4 py-3 text-center text-gray-600 border-r border-gray-100">${(r.Sustained2025 || r.Sustained || 0).toLocaleString()}</td>
+                                        <td class="px-4 py-3 text-center font-bold text-green-700 border-r border-gray-200 bg-green-50/30">${(r.Sustained2026 || r.Sustained || 0).toLocaleString()}</td>
+                                        <td class="px-4 py-3 text-center text-gray-600 border-r border-gray-100">${(r.DevOrgs2025 || r.DevOrgs || 0).toLocaleString()}</td>
+                                        <td class="px-4 py-3 text-center font-bold text-purple-700 bg-purple-50/30">${(r.DevOrgs2026 || r.DevOrgs || 0).toLocaleString()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
 
             return `
                 <div class="space-y-6">
                     ${createLastUpdatedBanner()}
-                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Social Action: National & Regional Overview</h2>
                     
-                    <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- National Section -->
+                    <div class="border-b border-gray-200 pb-2 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">National Overview</h2>
+                    </div>
+                    
+                    <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                         ${createStatCard('Activities of Fixed Duration', saData.activitiesOfFixedDuration.toLocaleString(), 'bg-blue-100 text-blue-600', '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>')}
                         ${createStatCard('Sustained Projects', saData.sustainedProjects.toLocaleString(), 'bg-green-100 text-green-600', '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>')}
                         ${createStatCard('Development Organizations', saData.developmentOrganizations.toLocaleString(), 'bg-purple-100 text-purple-600', '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>')}
                     </section>
                     
+                    <!-- Regional Section -->
+                    <div class="border-b border-gray-200 pb-2 mb-6 mt-8">
+                        <h2 class="text-2xl font-bold text-gray-800">Regional Overview</h2>
+                    </div>
+
                     <div class="grid grid-cols-1 gap-8">
                         <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h3 class="font-semibold text-lg mb-6 text-gray-800">Regional Distribution</h3>
-                            <div class="h-96"><canvas id="socialActionBarChart"></canvas></div>
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                                <h3 class="font-semibold text-lg text-gray-800 mb-4 sm:mb-0">Yearly Trends</h3>
+                                <div class="w-full sm:w-64">
+                                    <label for="saChartFilter" class="sr-only">Filter by Region</label>
+                                    <select id="saChartFilter" class="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-sky-500 focus:border-sky-500 rounded-lg bg-gray-50 border cursor-pointer hover:bg-white transition-colors">
+                                        <option value="All">All Regions</option>
+                                        ${regionOptions}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="h-96"><canvas id="socialActionLineChart"></canvas></div>
                         </section>
                         
-                        ${createTable(tableData, 'Detailed Regional Breakdown')}
+                        ${customTableHtml}
                     </div>
 
                     <!-- Definitions Section -->
@@ -1015,13 +1109,10 @@
                     dateDisplay.textContent = 'Last updated: 10 March 2026';
                     dateDisplay.classList.remove('hidden');
                 } else if (tabName === 'Social Action') {
-                    dateDisplay.textContent = 'Last updated: April 2025';
-                    dateDisplay.classList.remove('hidden');
-                } else if (tabName === 'Bi-Annual Survey') {
                     dateDisplay.textContent = 'Last updated: April 2026';
                     dateDisplay.classList.remove('hidden');
-                } else if (tabName === 'Pioneering') {
-                    dateDisplay.textContent = 'Last updated: November 2025';
+                } else if (['Bi-Annual Survey', 'Pioneering'].includes(tabName)) {
+                    dateDisplay.textContent = 'Last updated: April 2026';
                     dateDisplay.classList.remove('hidden');
                 } else {
                     dateDisplay.classList.add('hidden');
@@ -1160,14 +1251,13 @@
         function setupListeners() {
             if (!user || !db) return;
             
-            // Updated regional_data_v10 to force a fresh seed with new image data
-            const collections = ['regional_data_v10', 'survey_data_v2', 'cluster_data', 'cycle_data_v4', 'pioneering_data'];
+            const collections = ['regional_data_v10', 'survey_data', 'cluster_data', 'cycle_data_v4', 'pioneering_data'];
             const mapping = {
-                'regional_data_v10': 'regional', 'survey_data_v2': 'survey', 'cluster_data': 'cluster', 
+                'regional_data_v10': 'regional', 'survey_data': 'survey', 'cluster_data': 'cluster', 
                 'cycle_data_v4': 'cycle', 'pioneering_data': 'pioneeringTrends'
             };
             const tabMapping = {
-                'regional_data_v10': 'Main Dashboard', 'survey_data_v2': 'Bi-Annual Survey', 
+                'regional_data_v10': 'Main Dashboard', 'survey_data': 'Bi-Annual Survey', 
                 'cluster_data': 'Cluster Development', 'cycle_data_v4': 'Cycle Data', 'pioneering_data': 'Pioneering'
             };
 
@@ -1188,7 +1278,7 @@
                 }
             });
             
-            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v2', 'summary'), (snap) => {
+            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v13', 'summary'), (snap) => {
                 if (snap.exists()) {
                     appData.socialAction = snap.data();
                     refreshUIIfActive('Social Action');
@@ -1214,14 +1304,13 @@
         async function seedData() {
             if (!user || !db) return;
             try {
-                // Check for v10 regional data (New Seed)
                 const checkRef = collection(db, 'artifacts', appId, 'public', 'data', 'regional_data_v10');
                 const snapshot = await getDocs(checkRef);
                 
                 const cycleCheckRef = collection(db, 'artifacts', appId, 'public', 'data', 'cycle_data_v4');
                 const cycleSnapshot = await getDocs(cycleCheckRef);
                 
-                const saCheckRef = collection(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v2');
+                const saCheckRef = collection(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v13');
                 const saSnapshot = await getDocs(saCheckRef);
 
                 const upload = async (c, d) => { 
@@ -1233,14 +1322,13 @@
                     for(const i of d) await setDoc(doc(ref), i);
                 };
 
-                // Seed data if collections are empty
                 if (snapshot.empty) {
                     console.log("Seeding v10 data...");
                     await upload('regional_data_v10', initialData.regional);
                 }
                 
-                const surveyRef = collection(db, 'artifacts', appId, 'public', 'data', 'survey_data_v2');
-                if((await getDocs(surveyRef)).empty) await upload('survey_data_v2', initialData.survey);
+                const surveyRef = collection(db, 'artifacts', appId, 'public', 'data', 'survey_data');
+                if((await getDocs(surveyRef)).empty) await upload('survey_data', initialData.survey);
                 
                 const clusterRef = collection(db, 'artifacts', appId, 'public', 'data', 'cluster_data');
                 if((await getDocs(clusterRef)).empty) await upload('cluster_data', initialData.cluster);
@@ -1255,7 +1343,7 @@
                 }
                 
                 if (saSnapshot.empty && initialData.socialAction) {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v2', 'summary'), initialData.socialAction);
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'social_action_data_v13', 'summary'), initialData.socialAction);
                 }
 
                 console.log("Data seeding check complete.");
@@ -1265,30 +1353,25 @@
 
         // --- 4. STARTUP SEQUENCE ---
         
-        // 1. Grab DOM Elements (This works because type="module" defers execution)
         contentContainer = document.getElementById('content-container');
         regionSelect = document.getElementById('regionSelect');
         regionFilterContainer = document.getElementById('region-filter-container');
         loader = document.getElementById('loader');
         dashboard = document.getElementById('dashboard-container');
         
-        // Set Header Date with "Last updated:" prefix
         const dateDisplay = document.getElementById('header-date');
         if (dateDisplay) {
             dateDisplay.textContent = `Last updated: 24 March 2026`;
         }
             
-        // Setup PDF Export listener
         const exportBtn = document.getElementById('exportPdfBtn');
         if (exportBtn) {
             exportBtn.addEventListener('click', exportToPDF);
         }
 
-        // 2. Initial Render with Empty/Local Data to prevent blank screen
         populateRegionFilter();
         renderContent(currentTab);
         
-        // 3. Failsafe
         setTimeout(() => {
             if (loader && !loader.classList.contains('hidden')) {
                 loader.classList.add('hidden');
@@ -1296,7 +1379,6 @@
             }
         }, 2000);
 
-        // 4. Start Auth & Listeners
         if (auth) {
             initAuth().then(() => {
                 // Auth initiated
