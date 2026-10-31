@@ -449,7 +449,8 @@
                 { "Date": "May-Oct 2025", "Region": "NEA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 1, "Homefront Female": 1 },
                 { "Date": "May-Oct 2025", "Region": "NSW&ACT", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 0 },
                 { "Date": "May-Oct 2025", "Region": "VIC&TAS", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 0, "Homefront Female": 0 },
-                { "Date": "May-Oct 2025", "Region": "WCA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 1, "Homefront Female": 0 }
+                { "Date": "May-Oct 2025", "Region": "WCA", "Int'l Male": 0, "Int'l Female": 0, "Homefront Male": 1, "Homefront Female": 0 },
+                { "Date": "Nov-Apr 2026", "Region": "National", "Int'l Male": 3, "Int'l Female": 3, "Homefront Male": 3, "Homefront Female": 11 }
             ],
             youthMovement: {
                 total: 2978,
@@ -1125,7 +1126,7 @@
                     dateDisplay.textContent = 'Last updated: April 2026';
                     dateDisplay.classList.remove('hidden');
                 } else if (tabName === 'Pioneering') {
-                    dateDisplay.textContent = 'Last updated: April 2026';
+                    dateDisplay.textContent = 'Last updated: October 2026';
                     dateDisplay.classList.remove('hidden');
                 } else {
                     dateDisplay.classList.add('hidden');
@@ -1215,7 +1216,6 @@
             } else if (tabName === 'Cycle Data') {
                  html = `
                  <div class="space-y-6">
-                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4"><p class="text-sm text-yellow-700"><strong>Note:</strong> The data may be incorrect and needs to be verified.</p></div>
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 class="font-semibold mb-4">Educational Activity Trends per Cycle (${currentRegionFilter === 'All' ? 'By Region' : 'By Activity'})</h3><div class="h-96"><canvas id="cycleGroupsChart"></canvas></div></div>
                     ${createTable((appData.cycle.length > 0 ? appData.cycle : initialData.cycle).filter(d => currentRegionFilter === 'All' || d.Region === currentRegionFilter), `Detailed Cycle Data (${currentRegionFilter})`)}
                  </div>`;
@@ -1261,14 +1261,14 @@
         function setupListeners() {
             if (!user || !db) return;
             
-            const collections = ['regional_data_v11', 'survey_data', 'cluster_data', 'cycle_data_v4', 'pioneering_data'];
+            const collections = ['regional_data_v12', 'survey_data_v2', 'cluster_data', 'cycle_data_v5', 'pioneering_data_v4'];
             const mapping = {
-                'regional_data_v11': 'regional', 'survey_data': 'survey', 'cluster_data': 'cluster', 
-                'cycle_data_v4': 'cycle', 'pioneering_data': 'pioneeringTrends'
+                'regional_data_v12': 'regional', 'survey_data_v2': 'survey', 'cluster_data': 'cluster', 
+                'cycle_data_v5': 'cycle', 'pioneering_data_v4': 'pioneeringTrends'
             };
             const tabMapping = {
-                'regional_data_v11': 'Main Dashboard', 'survey_data': 'Bi-Annual Survey', 
-                'cluster_data': 'Cluster Development', 'cycle_data_v4': 'Cycle Data', 'pioneering_data': 'Pioneering'
+                'regional_data_v12': 'Main Dashboard', 'survey_data_v2': 'Bi-Annual Survey', 
+                'cluster_data': 'Cluster Development', 'cycle_data_v5': 'Cycle Data', 'pioneering_data_v4': 'Pioneering'
             };
 
             collections.forEach(colName => {
@@ -1343,10 +1343,10 @@
                 const clusterRef = collection(db, 'artifacts', appId, 'public', 'data', 'cluster_data');
                 if((await getDocs(clusterRef)).empty) await upload('cluster_data', initialData.cluster);
                 
-                if(cycleSnapshot.empty) await upload('cycle_data_v4', initialData.cycle);
+                if(cycleSnapshot.empty) await upload('cycle_data_v5', initialData.cycle);
 
-                const pioneerRef = collection(db, 'artifacts', appId, 'public', 'data', 'pioneering_data');
-                if((await getDocs(pioneerRef)).empty) await upload('pioneering_data', initialData.pioneeringTrends);
+                const pioneerRef = collection(db, 'artifacts', appId, 'public', 'data', 'pioneering_data_v4');
+                if((await getDocs(pioneerRef)).empty) await upload('pioneering_data_v4', initialData.pioneeringTrends);
                 
                 if (initialData.youthMovement) {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'youth_data', 'summary'), initialData.youthMovement);
