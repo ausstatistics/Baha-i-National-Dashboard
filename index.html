@@ -91,6 +91,42 @@
         </footer>
     </div>
 
+    <!-- AI Chat Widget -->
+    <div id="ai-chat-widget" class="fixed bottom-6 right-6 z-50">
+        <!-- Chat Panel -->
+        <div id="ai-chat-panel" class="hidden absolute bottom-16 right-0 w-80 md:w-96 h-[500px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300">
+            <!-- Header -->
+            <div class="bg-sky-600 p-4 flex justify-between items-center text-white">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <h3 class="font-semibold">Dashboard AI</h3>
+                </div>
+                <button id="close-chat-btn" class="text-white hover:text-sky-200 focus:outline-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <!-- Messages -->
+            <div id="ai-chat-messages" class="flex-1 p-4 overflow-y-auto bg-gray-50 space-y-4 text-sm flex flex-col custom-scrollbar">
+                <div class="bg-sky-100 text-sky-900 p-3 rounded-lg rounded-tl-none self-start max-w-[85%]">
+                    Hello! I'm your Dashboard AI. I can answer questions about regional activities, cycle data, pioneering trends, and more. What would you like to know about the current data?
+                </div>
+            </div>
+            <!-- Input -->
+            <div class="p-3 border-t border-gray-200 bg-white">
+                <form id="ai-chat-form" class="flex items-center space-x-2">
+                    <input type="text" id="ai-chat-input" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-sm" placeholder="Ask about the data..." required>
+                    <button type="submit" class="bg-sky-600 text-white p-2 rounded-lg hover:bg-sky-700 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 flex-shrink-0" id="ai-chat-submit">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+        <!-- Toggle Button -->
+        <button id="ai-chat-toggle" class="bg-sky-600 hover:bg-sky-700 text-white rounded-full p-4 shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-sky-300 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+        </button>
+    </div>
+
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -1406,6 +1442,102 @@
             if (loader) loader.classList.add('hidden');
             if (dashboard) dashboard.classList.remove('hidden');
         }
+
+        // --- 5. AI CHAT INTEGRATION ---
+        let chatHistory = [];
+        const apiKey = ""; // API key is automatically provided by the runtime environment
+        
+        function formatMarkdown(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function appendChatMessage(text, sender) {
+            const container = document.getElementById('ai-chat-messages');
+            const msgDiv = document.createElement('div');
+            const formattedText = formatMarkdown(text);
+            
+            if (sender === 'user') {
+                msgDiv.className = 'bg-gray-200 text-gray-800 p-3 rounded-lg rounded-tr-none self-end max-w-[85%]';
+            } else {
+                msgDiv.className = 'bg-sky-100 text-sky-900 p-3 rounded-lg rounded-tl-none self-start max-w-[85%]';
+            }
+            
+            msgDiv.innerHTML = formattedText;
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function initAIChat() {
+            const toggleBtn = document.getElementById('ai-chat-toggle');
+            const closeBtn = document.getElementById('close-chat-btn');
+            const chatPanel = document.getElementById('ai-chat-panel');
+            const chatForm = document.getElementById('ai-chat-form');
+            
+            const toggleChat = () => chatPanel.classList.toggle('hidden');
+            
+            if (toggleBtn) toggleBtn.addEventListener('click', toggleChat);
+            if (closeBtn) closeBtn.addEventListener('click', toggleChat);
+            
+            if (chatForm) {
+                chatForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const inputEl = document.getElementById('ai-chat-input');
+                    const message = inputEl.value.trim();
+                    if (!message) return;
+                    
+                    inputEl.value = '';
+                    appendChatMessage(message, 'user');
+                    
+                    const submitBtn = document.getElementById('ai-chat-submit');
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>`;
+                    
+                    chatHistory.push({ role: "user", parts: [{ text: message }] });
+                    
+                    // Inject the live appData into the system instruction so the AI can analyze it
+                    const systemPrompt = "You are an expert data analyst assistant for the Baháʼí National Dashboard of Australia. You answer questions STRICTLY based on the following JSON data representing the dashboard's current state. Keep answers concise, helpful, friendly, and well-formatted. Do not hallucinate data. Current Data Context: " + JSON.stringify(appData);
+                    
+                    const payload = {
+                        contents: chatHistory,
+                        systemInstruction: {
+                            parts: [{ text: systemPrompt }]
+                        }
+                    };
+                    
+                    try {
+                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.candidates && result.candidates.length > 0 && result.candidates[0].content) {
+                            const aiText = result.candidates[0].content.parts[0].text;
+                            chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                            appendChatMessage(aiText, 'ai');
+                        } else {
+                            appendChatMessage("Sorry, I couldn't process that request at this moment.", 'ai');
+                        }
+                    } catch (err) {
+                        console.error("AI Chat Error:", err);
+                        appendChatMessage("An error occurred while connecting to the AI.", 'ai');
+                    }
+                    
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>`;
+                });
+            }
+        }
+        
+        // Initialize the AI Chat functionality
+        initAIChat();
 
     </script>
 </body>
